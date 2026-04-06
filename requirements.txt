@@ -1,0 +1,17 @@
+fastapi
+gradio
+langchain
+langchain-google-genai
+llama-index
+transformers
+torch
+torchvision
+chromadb
+python-dotenv
+pydantic-settings
+streamlit
+pillow
+rembg
+langchain-community
+uvicorn
+python-multipart
