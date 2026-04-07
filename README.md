@@ -27,11 +27,40 @@ The system consists of specialized agents coordinated to perform diagnosis seaml
 
 ---
 
-## 🚀 How to Run the Project (Step-by-Step)
+## 🚀 Quick Start / How to Run
 
-### 1. Requirements and Setup
-Ensure you have Python 3.9 or higher. 
-First, it is highly recommended to set up a virtual environment:
+There are two primary ways to run this project depending on your environment needs.
+
+### Method 1: Local 1-Click Start (Recommended for Development)
+If you are running on macOS or Linux and want the easiest possible local setup:
+1. Copy the environment variables template:
+   ```bash
+   cp .env.example .env
+   ```
+2. Open `.env` and add your `GEMINI_API_KEY`.
+3. Run the automated starter script:
+   ```bash
+   ./start.sh
+   ```
+*This script will automatically create a virtual environment, install dependencies, initialize the Vector DB, start the FastAPI server in the background, and launch the Streamlit frontend locally!*
+
+---
+
+### Method 2: Docker / Docker Compose (Recommended for Production)
+The exact entire infrastructure is fully containerized. You do not need Python or PyTorch installed locally.
+1. Add your `GEMINI_API_KEY` to the `.env` file.
+2. Build and launch the cluster using Docker:
+   ```bash
+   docker-compose up --build -d
+   ```
+*Docker will handle setting up the appropriate System-level C bindings, fetching isolated Python images, caching the ML arrays, and launching both the UI (Port 8506) and the API Base (Port 8000).*
+
+---
+
+### Method 3: Manual Deployment (Step-by-Step)
+If you prefer to manually configure the environment and run the services individually without Docker or the starter script:
+
+#### 1. Setup Virtual Environment
 ```bash
 python -m venv venv
 # On Windows
@@ -40,40 +69,32 @@ venv\Scripts\activate
 source venv/bin/activate
 ```
 
-Install the required project dependencies:
+#### 2. Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Configure Environment Variables
-You need a Google API Key to use Gemini and create Generative Embeddings.
-- Copy `.env.example` to `.env` (or create a `.env` file):
-  ```bash
-  cp .env.example .env
-  ```
-- Open `.env` and add your Google Gemini API key:
-  ```ini
-  GEMINI_API_KEY=your_actual_gemini_api_key_here
-  ```
+#### 3. Environment Variables
+Copy the template to establish your `.env` file and insert your `GEMINI_API_KEY`:
+```bash
+cp .env.example .env
+```
 
-### 3. Initialize the Vector Knowledge Base (ChromaDB)
-To set up the Retrieval Agent correctly, you must generate the necessary ChromaDB instances comprising the disease reference documents. Run:
+#### 4. Initialize the Vector Knowledge Base (ChromaDB)
 ```bash
 python -m src.core.knowledge_setup
 ```
-This builds and saves the `chroma_db` into `data/processed`.
 
-### 4. Run the API (Backend)
-The system leverages FastAPI to expose the Multi-Agent diagnoses endpoint (`/diagnose`).
-To start the backend, run:
+#### 5. Run the API (Backend)
+In your terminal, boot up the FastAPI framework:
 ```bash
 uvicorn src.api.app:app --reload
 ```
-Once this launches, the API is running locally (usually on `http://127.0.0.1:8000`). You can view auto-generated documentation via `http://127.0.0.1:8000/docs`.
+The API serves at `http://127.0.0.1:8000`.
 
-### 5. Run the UI (Frontend Application)
-In a **new terminal tab** (with the virtual environment activated), start the user experience layer powered by Streamlit:
+#### 6. Run the UI (Frontend Application)
+In a **new terminal tab** (with the virtual environment freshly activated), host the interface:
 ```bash
 streamlit run src/ui/streamlit_app.py
 ```
-This will open the web console interface on `http://localhost:8501`. Upload any image of a rice leaf here, and follow along as the Multi-Agent system works through each process layer to achieve a diagnosis!
+This automatically opens the web console interface on `http://localhost:8501`.
