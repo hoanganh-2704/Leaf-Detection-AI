@@ -4,7 +4,7 @@
 set -e
 
 echo "======================================"
-echo "    🌱 LeafAI - 1-Click Start         "
+echo "    🌱 Rice Disease Detection AI - 1-Click Start         "
 echo "======================================"
 
 # 1. Check for .env file
@@ -40,21 +40,29 @@ python -m src.core.knowledge_setup
 
 # 5. Start FastAPI Backend
 echo "🚀 Starting AI Backend API (FastAPI) on port 8000..."
-uvicorn src.api.app:app --host 127.0.0.1 --port 8000 > /dev/null 2>&1 &
+uvicorn src.api.app:app --host 0.0.0.0 --port 8000 > /dev/null 2>&1 &
 BACKEND_PID=$!
+
+# Wait briefly to ensure backend has started before launching the frontend
+sleep 3
 
 # Function to cleanly kill the backend when you exit the script
 cleanup() {
     echo ""
     echo "🛑 Stopping FastAPI Backend (PID: $BACKEND_PID)..."
     kill $BACKEND_PID 2>/dev/null || true
-    echo "✅ LeafAI officially shut down. Goodbye!"
+    echo "✅ Rice Disease Detection AI shut down. Goodbye!"
     exit 0
 }
 # Catch Ctrl+C and exit gracefully
 trap cleanup SIGINT SIGTERM
 
 # 6. Start Streamlit Frontend
-echo "🎨 Starting Streamlit User Interface..."
-echo "👉 The app should automatically open in your browser."
+echo "🎨 Starting Streamlit User Interface on port 8506..."
+echo ""
+echo "  ✅ App ready at: http://localhost:8506"
+echo "  📡 API docs at:  http://localhost:8000/docs"
+echo ""
+echo "  Press Ctrl+C to stop all services."
+echo ""
 streamlit run src/ui/streamlit_app.py --server.port=8506

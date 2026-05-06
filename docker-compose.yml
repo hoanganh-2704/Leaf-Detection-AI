@@ -1,28 +1,38 @@
-version: '3.8'
 
 services:
   backend:
     build: .
-    container_name: leafai_backend
+    container_name: riceai_backend
     ports:
       - "8000:8000"
     env_file:
       - .env
     volumes:
+      # Shared volume: ChromaDB is written here on first start and reused
       - ./data:/app/data
     command: ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s   # Give the backend time to init ChromaDB + load ViT
 
   frontend:
     build: .
-    container_name: leafai_frontend
+    container_name: riceai_frontend
     ports:
       - "8506:8506"
     env_file:
       - .env
     volumes:
+      # Same shared volume so frontend can reach ChromaDB if needed
       - ./data:/app/data
-    command: ["streamlit", "run", "src/ui/streamlit_app.py", "--server.port=8506", "--server.address=0.0.0.0"]
+    command: ["streamlit", "run", "src/ui/streamlit_app.py",
+              "--server.port=8506", "--server.address=0.0.0.0",
+              "--server.headless=true"]
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy   # Wait until backend passes healthcheck

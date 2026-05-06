@@ -1,100 +1,313 @@
-# Leaf Detection System (Multi-Agent framework)
+# 🌿 Rice Disease Detection AI
 
-## Overview
-This project develops an AI Agent system for rice leaf disease detection. It utilizes a Multi-Agent architecture incorporating a Vision Transformer (ViT) model, an LLM, and a Vector Database for diagnosis and explanation.
-
-## AI Multi-Agent Architecture
-The system consists of specialized agents coordinated to perform diagnosis seamlessly:
-1. **Coordinator Agent (`src.agents.coordinator`)**: Orchestrates the workflow among other agents and uses Gemini to synthesize the final robust agricultural report based on their combined inputs.
-2. **Preprocessing Agent (`src.agents.preprocessing`)**: Processes raw user images to remove background noise (using `rembg`), leaving only the necessary leaf shape for better model focus.
-3. **Classification Agent (`src.agents.classification`)**: Feeds the image into a Hugging Face Vision Transformer (`prithivMLmods/Rice-Leaf-Disease`) to extract a primary disease label and prediction confidence score.
-4. **Morphology Agent (`src.agents.morphology`)**: Evaluates the preprocessed image using Google's Gemini Vision to describe the morphological specifics and visual symptoms the input exhibits.
-5. **Retrieval Agent (`src.agents.retrieval`)**: Queries the locally-stored ChromaDB vector database (Retrieval-Augmented Generation) to extract scientific knowledge, characteristics, and prevention strategies for the detected disease.
-
-## Directory Structure
-- `src/`: Source code for the application.
-  - `agents/`: Multi-Agent system components, including the pipeline orchestrator.
-  - `api/`: API endpoints via **FastAPI** (`app.py`).
-  - `core/`: Core utilities, environment setup (`config.py`), and RAG vector DB generation scripts (`knowledge_setup.py`).
-  - `models/`: Machine learning models setup and inferences.
-  - `ui/`: User Interface handled by **Streamlit** (`streamlit_app.py`).
-- `data/`: Datasets for training, validation, and testing.
-  - `raw/`: Raw image data.
-  - `processed/`: Processed data and ChromaDB vector embeddings.
-- `notebooks/`: Jupyter notebooks for explorations and data preparation.
-- `docs/`: Documents, reports, and diagrams.
-- `references/`: Reference papers and academic materials.
+A multi-agent AI system for diagnosing rice leaf diseases using **Vision Transformer (ViT)**, **Google Gemini**, and **ChromaDB RAG**.
 
 ---
 
-## 🚀 Quick Start / How to Run
+## 🤖 AI Multi-Agent Architecture
 
-There are two primary ways to run this project depending on your environment needs.
+Five specialised agents collaborate to produce a complete diagnosis:
 
-### Method 1: Local 1-Click Start (Recommended for Development)
-If you are running on macOS or Linux and want the easiest possible local setup:
-1. Copy the environment variables template:
-   ```bash
-   cp .env.example .env
-   ```
-2. Open `.env` and add your `GEMINI_API_KEY`.
-3. Run the automated starter script:
-   ```bash
-   ./start.sh
-   ```
-*This script will automatically create a virtual environment, install dependencies, initialize the Vector DB, start the FastAPI server in the background, and launch the Streamlit frontend locally!*
+| Agent | Role |
+|---|---|
+| **Coordinator** | Orchestrates the pipeline and synthesises the final report |
+| **Preprocessing** | Removes background (via `rembg`) and normalises the image |
+| **Classification** | Runs ViT (`prithivMLmods/Rice-Leaf-Disease`) → disease label + confidence |
+| **Morphology** | Describes visual symptoms using **Gemini Vision** multimodal analysis |
+| **Retrieval** | Queries **ChromaDB** (RAG) for evidence-based treatment information |
+
+Supported diseases: **Blast (Đạo ôn)** · **Bacterial Blight (Bạc lá)** · **Brown Spot (Đốm nâu)** · **Tungro (Vàng lùn)**
 
 ---
 
-### Method 2: Docker / Docker Compose (Recommended for Production)
-The exact entire infrastructure is fully containerized. You do not need Python or PyTorch installed locally.
-1. Add your `GEMINI_API_KEY` to the `.env` file.
-2. Build and launch the cluster using Docker:
-   ```bash
-   docker-compose up --build -d
-   ```
-*Docker will handle setting up the appropriate System-level C bindings, fetching isolated Python images, caching the ML arrays, and launching both the UI (Port 8506) and the API Base (Port 8000).*
+## 📋 Prerequisites
+
+| Requirement | Notes |
+|---|---|
+| **Python 3.10+** | Required for local / venv methods. [Download](https://www.python.org/downloads/) |
+| **Docker Desktop** | Required for the Docker method. [Download](https://www.docker.com/products/docker-desktop/) |
+| **GEMINI_API_KEY** | Get one free at [Google AI Studio](https://aistudio.google.com/app/apikey) |
+
+> **Windows users:** Make sure Python is added to `PATH` during installation (check the box on the Python installer). After installing Docker Desktop, ensure it is running before using any `docker compose` command.
 
 ---
 
-### Method 3: Manual Deployment (Step-by-Step)
-If you prefer to manually configure the environment and run the services individually without Docker or the starter script:
+## ⚙️ Environment Setup (all methods)
 
-#### 1. Setup Virtual Environment
-```bash
-python -m venv venv
-# On Windows
-venv\Scripts\activate
-# On Linux/MacOS
-source venv/bin/activate
-```
-
-#### 2. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
-
-#### 3. Environment Variables
-Copy the template to establish your `.env` file and insert your `GEMINI_API_KEY`:
+### Linux / macOS
 ```bash
 cp .env.example .env
 ```
 
-#### 4. Initialize the Vector Knowledge Base (ChromaDB)
+### Windows (Command Prompt)
+```cmd
+copy .env.example .env
+```
+
+### Windows (PowerShell)
+```powershell
+Copy-Item .env.example .env
+```
+
+Then open `.env` in any text editor and set:
+```
+GEMINI_API_KEY=your_actual_key_here
+```
+
+---
+
+## 🚀 Method 1 — 1-Click Script (Recommended for Development)
+
+### Linux / macOS
+
+```bash
+chmod +x start.sh
+./start.sh
+```
+
+### Windows (Double-click or Command Prompt)
+
+```cmd
+start.bat
+```
+
+Or run from Command Prompt:
+```cmd
+cd "path\to\Leaf Detection"
+start.bat
+```
+
+The script automatically:
+- Creates a Python virtual environment
+- Installs all dependencies from `requirements.txt`
+- Initialises the ChromaDB vector knowledge base (~20 s, needs internet + API key)
+- Starts **FastAPI backend** on port **8000**
+- Starts **Streamlit frontend** on port **8506**
+
+**Access the app:**
+
+| Service | URL |
+|---|---|
+| 🌿 Streamlit UI | http://localhost:8506 |
+| 📡 FastAPI Docs | http://localhost:8000/docs |
+
+Press `Ctrl+C` (or close the windows on Windows) to stop all services.
+
+---
+
+## 🐳 Method 2 — Docker Compose (Recommended for Production)
+
+> Works identically on **Linux, macOS, and Windows** (Docker Desktop required on Windows/macOS).
+
+### Step 1 — Build and start
+
+```bash
+docker compose up --build
+```
+
+Or in detached (background) mode:
+
+```bash
+docker compose up --build -d
+```
+
+### Step 2 — Wait for startup
+
+The **backend** initialises ChromaDB and loads the ViT model on the first run (~60 s).  
+The **frontend** waits for the backend healthcheck to pass before starting.
+
+Follow logs in real time:
+
+```bash
+docker compose logs -f
+```
+
+### Step 3 — Access the app
+
+| Service | URL |
+|---|---|
+| 🌿 Streamlit UI | http://localhost:8506 |
+| 📡 FastAPI Docs | http://localhost:8000/docs |
+
+### Useful commands
+
+```bash
+# Stop containers (data volume is preserved)
+docker compose down
+
+# Stop and delete the ChromaDB data volume (forces re-init next time)
+docker compose down -v
+
+# Rebuild after code changes
+docker compose up --build
+
+# Check container status
+docker compose ps
+
+# View logs for one service
+docker compose logs -f backend
+docker compose logs -f frontend
+```
+
+> **First-run note:** On the very first `docker compose up`, the backend runs `knowledge_setup.py` which calls the Gemini API to build the ChromaDB index. This takes ~30–60 s. The `./data/processed/chroma_db/` directory is persisted as a bind-mount volume so subsequent restarts skip this step and start in seconds.
+
+> **Windows note:** Run all `docker compose` commands in **PowerShell** or **Command Prompt**. Docker Desktop must be running. If you see a `WSL 2` error, enable it in Docker Desktop settings.
+
+---
+
+## 🔧 Method 3 — Manual Step-by-Step
+
+### 1. Create and activate a virtual environment
+
+**Linux / macOS**
+```bash
+python -m venv venv
+source venv/bin/activate
+```
+
+**Windows (Command Prompt)**
+```cmd
+python -m venv venv
+venv\Scripts\activate.bat
+```
+
+**Windows (PowerShell)**
+```powershell
+python -m venv venv
+venv\Scripts\Activate.ps1
+```
+
+> **Windows PowerShell tip:** If you see `cannot be loaded because running scripts is disabled`, run this once as Administrator:
+> ```powershell
+> Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+> ```
+
+### 2. Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 3. Set up environment variables
+
+**Linux / macOS**
+```bash
+cp .env.example .env
+```
+
+**Windows (Command Prompt)**
+```cmd
+copy .env.example .env
+```
+
+Open `.env` and add your `GEMINI_API_KEY`.
+
+### 4. Initialise the ChromaDB knowledge base
+
 ```bash
 python -m src.core.knowledge_setup
 ```
 
-#### 5. Run the API (Backend)
-In your terminal, boot up the FastAPI framework:
-```bash
-uvicorn src.api.app:app --reload
-```
-The API serves at `http://127.0.0.1:8000`.
+> Requires `GEMINI_API_KEY` in `.env`. Takes ~20 seconds on first run.
 
-#### 6. Run the UI (Frontend Application)
-In a **new terminal tab** (with the virtual environment freshly activated), host the interface:
+### 5. Start the FastAPI backend
+
+Open a terminal (with the venv activated):
+
 ```bash
-streamlit run src/ui/streamlit_app.py
+uvicorn src.api.app:app --host 0.0.0.0 --port 8000 --reload
 ```
-This automatically opens the web console interface on `http://localhost:8501`.
+
+API available at `http://localhost:8000` · Docs at `http://localhost:8000/docs`
+
+### 6. Start the Streamlit frontend
+
+Open a **second terminal** (activate the venv again):
+
+**Linux / macOS**
+```bash
+source venv/bin/activate
+streamlit run src/ui/streamlit_app.py --server.port 8506
+```
+
+**Windows**
+```cmd
+venv\Scripts\activate.bat
+streamlit run src/ui/streamlit_app.py --server.port 8506
+```
+
+Open `http://localhost:8506` in your browser.
+
+---
+
+## 🗂️ Project Structure
+
+```
+Leaf Detection/
+├── src/
+│   ├── agents/               # Multi-agent pipeline
+│   │   ├── coordinator.py
+│   │   ├── preprocessing.py
+│   │   ├── classification.py
+│   │   ├── morphology.py
+│   │   └── retrieval.py
+│   ├── api/                  # FastAPI REST backend
+│   │   └── app.py
+│   ├── core/                 # Shared utilities
+│   │   ├── config.py
+│   │   ├── workflow.py
+│   │   └── knowledge_setup.py
+│   └── ui/                   # Streamlit frontend
+│       └── streamlit_app.py
+├── data/
+│   └── processed/
+│       └── chroma_db/        # Vector DB (auto-created on first run)
+├── docs/                     # Thesis, diagrams, screenshots
+├── tests/                    # pytest test suite
+├── Dockerfile
+├── docker-compose.yml
+├── docker-entrypoint.sh      # Container startup script
+├── requirements.txt
+├── start.sh                  # 1-click launcher (Linux/macOS)
+├── start.bat                 # 1-click launcher (Windows)
+└── .env.example
+```
+
+---
+
+## 🧪 Running Tests
+
+**Linux / macOS**
+```bash
+source venv/bin/activate
+pytest tests/ -v
+```
+
+**Windows**
+```cmd
+venv\Scripts\activate.bat
+pytest tests/ -v
+```
+
+---
+
+## 🔑 Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `GEMINI_API_KEY` | ✅ Yes | Google Gemini API key — get one free at [aistudio.google.com](https://aistudio.google.com/app/apikey) |
+| `HF_TOKEN` | ⬜ Optional | HuggingFace token (only if the ViT model requires authentication) |
+
+---
+
+## 🛠️ Troubleshooting
+
+| Problem | Solution |
+|---|---|
+| `python` not found on Windows | Use `python3` or ensure Python is added to `PATH` during installation |
+| PowerShell script execution blocked | Run `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser` as Administrator |
+| `GEMINI_API_KEY` error | Ensure the key is set in `.env` (not just exported in your shell) |
+| Docker: `port is already allocated` | Another service is using port 8000 or 8506. Stop it, or change the port mapping in `docker-compose.yml` |
+| Docker: frontend starts before backend is ready | This is handled by the healthcheck. If it persists, increase `start_period` in `docker-compose.yml` |
+| ChromaDB not found error | Run `python -m src.core.knowledge_setup` to (re)create the vector DB |
+| `rembg` install fails on Windows | Install [Visual C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) first |

@@ -10,8 +10,8 @@ from PIL import Image
 from src.core.workflow import run_diagnosis
 
 app = FastAPI(
-    title="Rice Leaf Disease Detection API",
-    description="Multi-Agent AI system for diagnosing rice leaf diseases using Vision Transformer + Gemini.",
+    title="Rice Disease Detection API",
+    description="Hệ thống AI đa tác nhân chẩn đoán bệnh lúa sử dụng Vision Transformer + Gemini.",
     version="1.0.0"
 )
 

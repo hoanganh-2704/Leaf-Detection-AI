@@ -2,27 +2,31 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies required for CV models and PyTorch
+# Install system dependencies required by rembg, OpenCV and PyTorch
 RUN apt-get update && apt-get install -y \
     build-essential \
     libgl1 \
     libglib2.0-0 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy dependencies logic first for caching
+# Copy and install Python dependencies first (layer cache)
 COPY requirements.txt .
-
-# Install Python requirements
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application
+# Copy application source
 COPY . .
 
-# Ensure PYTHONPATH is correctly targeted at the project root
-ENV PYTHONPATH="${PYTHONPATH}:/app"
+# Make the entrypoint executable
+RUN chmod +x /app/docker-entrypoint.sh
 
-# Setup the Chroma database exactly once during the container build
-RUN python -m src.core.knowledge_setup
+# Ensure Python can find the project root
+ENV PYTHONPATH="/app"
 
-# Default execution target (Can be overridden by Compose)
-CMD ["streamlit", "run", "src/ui/streamlit_app.py", "--server.port=8506", "--server.address=0.0.0.0"]
+# NOTE: ChromaDB initialisation is done at container START (in entrypoint)
+# because GEMINI_API_KEY is only available at runtime, not during build.
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
+
+# Default: run the Streamlit frontend (overridden by docker-compose for backend)
+CMD ["streamlit", "run", "src/ui/streamlit_app.py", \
+     "--server.port=8506", "--server.address=0.0.0.0"]

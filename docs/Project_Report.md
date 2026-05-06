@@ -1,10 +1,10 @@
-# 🌾 LeafAI: Comprehensive Project Report
+# 🌾 Rice Disease Detection AI: Comprehensive Project Report
 
 ## 1. Executive Summary
-LeafAI is an advanced multi-agent Artificial Intelligence framework designed for precise agricultural diagnostics. Specifically, it focuses on analyzing images of rice leaves to detect and identify various diseases (e.g. Rice Blast, Bacterial Blight, Brown Spot, Tungro). Utilizing a composition of models including a Vision Transformer (ViT) and Google's Gemini LLM, plus Retrieval-Augmented Generation (RAG) capabilities via ChromaDB, it presents a cohesive pipeline that mimics expert agricultural consultation. 
+Rice Disease Detection AI is an advanced multi-agent Artificial Intelligence framework designed for precise agricultural diagnostics. Specifically, it focuses on analyzing images of rice leaves to detect and identify various diseases (e.g. Rice Blast, Bacterial Blight, Brown Spot, Tungro). Utilizing a composition of models including a Vision Transformer (ViT) and Google's Gemini LLM, plus Retrieval-Augmented Generation (RAG) capabilities via ChromaDB, it presents a cohesive pipeline that mimics expert agricultural consultation. 
 
 ![Streamlit User Interface](images/streamlit_ui.png)
-*Figure 1: The LeafAI Streamlit-based web interface.*
+*Figure 1: The Rice Disease Detection AI Streamlit-based web interface.*
 
 ---
 
@@ -13,7 +13,7 @@ LeafAI is an advanced multi-agent Artificial Intelligence framework designed for
 The overarching system relies on a modular, multi-agent pattern coordinated by `CoordinatorAgent`. The application flow guarantees image sanitation, accurate classification, visual cross-referencing, and robust reporting. 
 
 ![System Workflow Diagram](images/flow.png)
-*Figure 2: Data Flow across the LeafAI System*
+*Figure 2: Data Flow across the Rice Disease Detection AI System*
 
 ### 🤖 Multi-Agent Framework
 1. **Preprocessing Agent (`rembg` & `PIL`)**

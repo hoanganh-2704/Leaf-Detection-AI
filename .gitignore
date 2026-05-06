@@ -1,4 +1,4 @@
-# Python
+# ── Python ──────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *.pyo
@@ -8,32 +8,36 @@ __pycache__/
 .venv
 venv/
 
-# PyTorch model cache
+# ── PyTorch / HuggingFace model weights ─────────────
 *.pt
 *.bin
 *.safetensors
-
-# ChromaDB persisted store
-data/processed/chroma_db/
-
-# HuggingFace cache
 .cache/
 
-# LaTeX build artifacts
+# ── ChromaDB persisted vector store ─────────────────
+data/processed/chroma_db/
+
+# ── LaTeX build artifacts ────────────────────────────
 *.aux
 *.fdb_latexmk
 *.fls
 *.log
 *.out
 *.synctex.gz
+*.toc
+*.lof
+*.lot
+thesis_stdout.txt
 
-# Jupyter
+# ── TexLive local installation (dev tool, not source) ─
+texlive_setup/
+texlive/
+
+# ── Jupyter ─────────────────────────────────────────
 .ipynb_checkpoints/
 
-# OS files
+# ── OS / IDE ─────────────────────────────────────────
 .DS_Store
-Thumbs.db
-
-# IDE
+Thumbbs.db
 .vscode/
 .idea/
