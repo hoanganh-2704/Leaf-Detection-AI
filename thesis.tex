@@ -722,9 +722,9 @@ Thời gian suy luận & $\sim$0.8s (CPU) \\
 \end{table}
 
 \subsection{Coordinator Agent}
-\textbf{Chức năng:} Điều phối toàn bộ pipeline và tổng hợp báo cáo chẩn đoán cuối cùng.
+Coordinator Agent đóng hai vai trò: (1) điều phối tuần tự bốn Agent còn lại theo đúng thứ tự xử lý, và (2) gọi Gemini để tổng hợp tất cả kết quả thành báo cáo tiếng Việt hoàn chỉnh.
 
-\textbf{Pattern Singleton:} Coordinator Agent được khởi tạo một lần duy nhất khi server khởi động (lazy singleton qua hàm \texttt{get\_coordinator()}) để tránh tải lại mô hình ViT và khởi tạo ChromaDB mỗi lần yêu cầu.
+Một vấn đề thực tế gặp phải khi lập trình là thời gian khởi động chậm: mỗi lần tải mô hình ViT (~330MB) mất khoảng 8--10 giây, và khởi tạo ChromaDB cũng thêm vài giây. Nếu để hàm này chạy mỗi khi có request thì trải nghiệm người dùng sẽ rất tệ. Giải pháp là dùng lazy singleton qua hàm \texttt{get\_coordinator()} --- mô hình chỉ tải một lần khi server khởi động, các request sau dùng lại instance đã có trong bộ nhớ.
 
 \textbf{Cấu trúc Prompt tổng hợp báo cáo:}
 \begin{lstlisting}[language=Python, caption={Prompt tổng hợp báo cáo trong Coordinator Agent}, label={lst:coordinator_prompt}]
@@ -862,8 +862,8 @@ Leaf Detection/
 
 \section{Triển khai Docker}
 
-\subsection{Chiến lược container hóa}
-Dự án sử dụng Docker để đảm bảo tính nhất quán môi trường từ phát triển đến sản xuất. Chiến lược triển khai gồm hai container độc lập giao tiếp qua mạng Docker nội bộ:
+\subsection{Container hóa ứng dụng}
+Một khó khăn thực tế khi chia sẻ dự án Python là sự khác biệt môi trường giữa các máy --- phiên bản thư viện, đường dẫn hệ thống, biến môi trường --- thường gây lỗi rất khó tái hiện. Docker giải quyết vấn đề này bằng cách đóng gói toàn bộ ứng dụng cùng với môi trường chạy của nó. Hệ thống được tách thành hai container độc lập giao tiếp qua mạng Docker nội bộ:
 
 \begin{figure}[H]
     \centering
@@ -896,7 +896,7 @@ CMD ["streamlit", "run", "src/ui/streamlit_app.py",
      "--server.port=8506", "--server.address=0.0.0.0"]
 \end{lstlisting}
 
-\textbf{Tối ưu hóa build:} Việc sao chép \texttt{requirements.txt} và cài đặt dependencies trước khi sao chép mã nguồn tận dụng cơ chế caching của Docker --- nếu requirements.txt không thay đổi, Docker sẽ sử dụng lại layer cache, tiết kiệm đáng kể thời gian build.
+Một điểm cần lưu ý trong cấu trúc Dockerfile: \texttt{requirements.txt} được sao chép và cài đặt \emph{trước} khi sao chép mã nguồn. Điều này tận dụng cơ chế layer cache của Docker --- khi chỉ thay đổi code mà không đổi thư viện, Docker bỏ qua bước cài đặt và tiết kiệm vài phút mỗi lần build. Đây là thói quen viết Dockerfile quan trọng mà tác giả học được trong quá trình thực hiện đề tài.
 
 \subsection{Docker Compose}
 \begin{lstlisting}[language=bash, caption={Cấu hình docker-compose.yml}, label={lst:dockercompose}, basicstyle=\ttfamily\small]
@@ -1175,56 +1175,27 @@ Kết quả cho thấy mô hình ViT duy trì F1-score $> 0.92$ trong hầu hế
 
 \section*{1. Tổng kết kết quả đạt được}
 
-Đồ án đã nghiên cứu và phát triển thành công một hệ thống chẩn đoán bệnh cây lúa thông minh dựa trên kiến trúc Đa Tác Vụ AI. Các kết quả nổi bật đạt được gồm:
+Sau quá trình thực hiện, đề tài đã hoàn thành các mục tiêu đề ra ban đầu. Về kỹ thuật, pipeline đa tác nhân gồm 5 Agent hoạt động đúng theo thiết kế: ảnh lá lúa đầu vào được tiền xử lý, phân loại bằng ViT, phân tích hình thái bằng Gemini, tra cứu tri thức từ ChromaDB, và tổng hợp thành báo cáo tiếng Việt hoàn chỉnh. Mô hình ViT đạt F1-score trung bình 0.963 trên tập kiểm thử 400 ảnh --- kết quả này cao hơn mức 0.90--0.92 thường thấy ở các mô hình CNN trong các nghiên cứu tương tự, dù cần thận trọng khi so sánh do khác biệt về tập dữ liệu và điều kiện đánh giá.
 
-\textbf{Về khoa học và công nghệ:}
-\begin{itemize}[leftmargin=1.5cm]
-    \item Xây dựng thành công pipeline đa tác nhân gồm 5 Agent chuyên biệt phối hợp hiệu quả: Preprocessing, Classification, Morphology, Retrieval và Coordinator.
-    \item Tích hợp thành công mô hình Vision Transformer (ViT) tinh chỉnh trên dữ liệu lá lúa, đạt F1-score trung bình \textbf{0.963} trên tập kiểm thử 400 ảnh, vượt trội so với các mô hình CNN truyền thống thường đạt $\leq 0.92$ trên cùng bài toán.
-    \item Triển khai hệ thống RAG với ChromaDB tích hợp Gemini Embedding, loại bỏ hiện tượng hallucination trong các khuyến nghị điều trị.
-    \item Áp dụng Gemini 2.5 Flash đa phương thức để phân tích hình thái học, tăng tính minh bạch và khả năng giải thích của hệ thống.
-\end{itemize}
+Về phía sản phẩm phần mềm, hệ thống có giao diện web tiếng Việt dễ dùng, API RESTful có tài liệu tự động, và được đóng gói Docker với hai script khởi động cho Linux/macOS (\texttt{start.sh}) và Windows (\texttt{start.bat}). Bộ kiểm thử pytest bao phủ các chức năng cốt lõi của từng Agent.
 
-\textbf{Về phần mềm và triển khai:}
-\begin{itemize}[leftmargin=1.5cm]
-    \item Xây dựng REST API hoàn chỉnh với FastAPI, cung cấp tài liệu OpenAPI tự động và hỗ trợ tích hợp với bất kỳ frontend nào.
-    \item Thiết kế giao diện Streamlit theo phong cách glassmorphism hiện đại, trực quan và thân thiện.
-    \item Đóng gói toàn bộ hệ thống trong Docker với script \texttt{start.sh} cho phép triển khai 1-click trên mọi môi trường.
-    \item Xây dựng bộ kiểm thử pytest đạt độ phủ 100\% cho các tầng Agent quan trọng.
-\end{itemize}
+Nhìn lại quá trình thực hiện, thách thức lớn nhất không phải là thuật toán mà là vấn đề tích hợp hệ thống: đảm bảo các Agent giao tiếp đúng định dạng dữ liệu, xử lý lỗi khi Gemini API trả về kết quả không như mong đợi, và tối ưu thứ tự khởi động container trong Docker.
 
 \section*{2. Hạn chế của hệ thống}
 
-\begin{enumerate}[leftmargin=1.5cm]
-    \item \textbf{Phụ thuộc Internet:} Các tác vụ gọi Gemini API yêu cầu kết nối mạng ổn định. Nông dân ở vùng hẻo lánh không có 4G/WiFi không thể sử dụng.
-    \item \textbf{Thời gian phản hồi:} $\sim 15$ giây mỗi yêu cầu có thể chấp nhận được nhưng chưa thực sự tiện lợi cho sử dụng hàng loạt.
-    \item \textbf{Phạm vi bệnh hạn chế:} Hệ thống hiện chỉ hỗ trợ 4 loại bệnh phổ biến nhất; thực tế cây lúa có thể mắc hàng chục loại bệnh khác nhau.
-    \item \textbf{Góc chụp và ánh sáng:} Hiệu năng giảm khi ảnh chụp ngược sáng, thiếu sáng mạnh ($F1 \approx 0.92$ khi độ sáng giảm 50\%).
-    \item \textbf{Cơ sở tri thức RAG còn nhỏ:} Hiện chỉ có 4 tài liệu cơ bản, chưa bao quát hết phức tạp của bệnh học nông nghiệp thực tiễn.
-\end{enumerate}
+Hệ thống hiện có một số hạn chế cần thẳng thắn nhìn nhận. Hạn chế lớn nhất là phụ thuộc Internet: cả Morphology Agent lẫn Coordinator Agent đều gọi Gemini API, nghĩa là nông dân ở vùng không có 4G/WiFi ổn định không thể sử dụng. Đây là điểm mâu thuẫn với đối tượng người dùng ban đầu --- vùng sâu vùng xa --- và là vấn đề kiến trúc cần giải quyết trong các phiên bản sau.
+
+Về độ trễ, $\approx 15$ giây mỗi lần chẩn đoán có thể chấp nhận cho người dùng đơn lẻ nhưng không phù hợp nếu cần xử lý nhiều ảnh liên tiếp. Toàn bộ thời gian chờ đến từ hai lần gọi Gemini API ($\approx 10.6$s trong tổng số $\approx 14$s); giảm số lần gọi API hoặc dùng mô hình LLM cục bộ sẽ cải thiện đáng kể.
+
+Phạm vi bệnh hạn chế ở 4 loại là giới hạn của tập dữ liệu huấn luyện mô hình ViT trên Hugging Face, không phải giới hạn của kiến trúc. Cơ sở tri thức RAG hiện chỉ có 4 tài liệu ngắn --- đủ để minh họa cơ chế RAG nhưng chưa đủ chiều sâu cho ứng dụng thực tiễn.
 
 \section*{3. Hướng phát triển tương lai}
 
-\textbf{Ngắn hạn (3--6 tháng):}
-\begin{itemize}[leftmargin=1.5cm]
-    \item Mở rộng hỗ trợ thêm 10--15 loại bệnh lúa phổ biến khác tại Đông Nam Á.
-    \item Xây dựng Mobile App (React Native / Flutter) tích hợp API đã có sẵn, cho phép sử dụng trực tiếp trên điện thoại ngoài đồng.
-    \item Cải thiện cơ sở tri thức RAG bằng cách nhúng tài liệu từ IRRI (International Rice Research Institute), Viện Lúa Đồng bằng sông Cửu Long.
-\end{itemize}
+Hướng cần thiết nhất trước mắt là giải quyết bài toán offline. Một phương án khả thi là dùng ViT-Tiny (5.7M tham số, nhỏ hơn ViT-Base $\sim$15 lần) kết hợp với LLM nhỏ gọn chạy cục bộ như Phi-3-mini hoặc Gemma-2B; hai mô hình này có thể chạy trên điện thoại Android tầm trung mà không cần kết nối mạng.
 
-\textbf{Trung hạn (6--18 tháng):}
-\begin{itemize}[leftmargin=1.5cm]
-    \item Phát triển chế độ Offline --- chạy mô hình nhỏ gọn (ViT-Tiny + LLM cục bộ) trực tiếp trên thiết bị di động không cần Internet.
-    \item Tích hợp module định vị GPS để xây dựng bản đồ dịch tễ bệnh lúa theo thời gian thực, cảnh báo sớm cho cả vùng.
-    \item Phát triển module phân tích ảnh vệ tinh (Sentinel-2) để phát hiện bệnh trên quy mô đồng ruộng lớn.
-\end{itemize}
+Về mở rộng tập bệnh, kiến trúc hiện tại cho phép thêm bệnh mới chỉ bằng cách thay mô hình ViT và bổ sung tài liệu vào ChromaDB --- không cần viết lại code Agent. Đây là ưu điểm thiết kế rõ ràng nhất của kiến trúc đa tác nhân.
 
-\textbf{Dài hạn (18+ tháng):}
-\begin{itemize}[leftmargin=1.5cm]
-    \item Mở rộng sang các cây trồng khác (ngô, cà phê, tiêu, điều) với kiến trúc Agent có thể mở rộng (extensible).
-    \item Nghiên cứu tích hợp federated learning để cải thiện mô hình từ dữ liệu ảnh nông dân gửi lên mà không vi phạm quyền riêng tư.
-    \item Xuất bản kết quả nghiên cứu dưới dạng bài báo khoa học tại các hội nghị AI và nông nghiệp thông minh quốc tế.
-\end{itemize}
+Dài hạn hơn, hướng kết hợp dữ liệu GPS từ báo cáo người dùng để xây dựng bản đồ dịch tễ bệnh theo thời gian thực là hướng có giá trị thực tiễn cao, nhưng đòi hỏi giải quyết thêm các vấn đề về quyền riêng tư dữ liệu và độ tin cậy của báo cáo người dùng.
 \clearpage
 
 % ─────────────────────────────────────────────
