@@ -940,78 +940,75 @@ services:
 \section{Giao diện người dùng Streamlit}
 
 \subsection{Triết lý thiết kế UI}
-Giao diện được thiết kế theo nguyên tắc \textbf{Progressive Disclosure} --- hiển thị thông tin từ tổng quát đến chi tiết theo ba bước tuần tự: Tải ảnh $\rightarrow$ Theo dõi xử lý $\rightarrow$ Xem kết quả. Nông dân nhìn thấy kết quả chính ngay lập tức (tên bệnh, độ tin cậy), có thể mở rộng để xem thông tin chi tiết hơn (phân tích hình thái, tri thức RAG, báo cáo đầy đủ).
+Giao diện được thiết kế theo nguyên tắc \textbf{đơn giản và tập trung vào tác vụ} (\textit{task-focused minimalism}) --- loại bỏ mọi yếu tố trang trí không cần thiết, chỉ giữ lại các thành phần phục vụ trực tiếp cho quy trình chẩn đoán. Người dùng được dẫn dắt theo một luồng tuyến tính từ trên xuống dưới:
+\[
+\text{Tải ảnh} \;\rightarrow\; \text{Bắt đầu chẩn đoán} \;\rightarrow\; \text{Xem tiến trình} \;\rightarrow\; \text{Đọc kết quả}
+\]
 
-\textbf{Glassmorphism Design:} Giao diện sử dụng hiệu ứng kính mờ (\textit{glassmorphism}) với thuộc tính CSS \texttt{backdrop{-}filter:\allowbreak\ blur(12px)} tạo cảm giác hiện đại, chuyên nghiệp. Màu sắc chủ đạo là xanh lá (\texttt{\#2d6a4f}, \texttt{\#52b788}) --- màu đặc trưng của nông nghiệp, đồng thời tạo sự tương phản tốt cho người dùng ngoài trời. Font chữ sử dụng \texttt{Outfit} từ Google Fonts với kích thước tối ưu cho cả màn hình desktop và di động.
+\textbf{Ngôn ngữ song ngữ:} Tiêu đề chính hiển thị bằng tiếng Anh (\textit{``Rice Disease Detection''}) kết hợp phụ đề tiếng Việt (\textit{``Chẩn Đoán Bệnh Cây Lúa --- Hệ thống AI Đa Tác Nhân''}) để phù hợp cả với người dùng quốc tế và nông dân Việt Nam.
+
+\textbf{Layout đơn cột căn giữa:} Toàn bộ nội dung được đặt trong một cột duy nhất, căn giữa màn hình, sử dụng font \texttt{Inter} từ Google Fonts. Không có sidebar, không có hero image, không có yếu tố trang trí thừa. Kỹ thuật \texttt{st.stop()} được sử dụng để ngăn render các phần chưa cần thiết, giữ giao diện gọn gàng theo từng bước.
 
 \subsection{Bước 1 --- Tải ảnh lên hệ thống}
-Khi truy cập địa chỉ \texttt{http://localhost:8506}, người dùng thấy giao diện chào mừng với tiêu đề lớn \textit{``Rice Disease Detection AI''} và mô tả ngắn về hệ thống. Màn hình được chia làm ba vùng:
-
-\begin{itemize}[leftmargin=1.5cm]
-    \item \textbf{Thanh bên trái (Sidebar):} Hướng dẫn sử dụng ba bước, yêu cầu định dạng ảnh (JPG, PNG, WebP, tối đa 20MB) và lưu ý về góc chụp tốt nhất.
-    \item \textbf{Vùng upload (giữa):} Widget \texttt{st.file\_uploader} cho phép kéo thả hoặc nhấn chọn tệp; nút \textit{``Chẩn đoán ngay''} được kích hoạt sau khi ảnh được tải lên thành công.
-    \item \textbf{Vùng xem trước (phải):} Ảnh được render ngay khi chọn, cho phép người dùng kiểm tra chất lượng trước khi gửi đi.
-\end{itemize}
+Khi truy cập \texttt{http://localhost:8506}, người dùng thấy ngay tiêu đề song ngữ, một dòng mô tả ngắn, và widget tải ảnh. Không có nội dung phụ làm phân tâm. Widget \texttt{st.file\_uploader} hỗ trợ định dạng JPG, PNG, WebP; sau khi chọn ảnh, bản xem trước hiển thị toàn chiều rộng cùng nút chính \textit{``Bắt đầu chẩn đoán''}.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.88\textwidth]{docs/images/ui_upload_step.png}
-    \caption{Bước 1 --- Màn hình tải ảnh: giao diện hero header, khu vực kéo thả ảnh và sidebar hướng dẫn sử dụng ba bước.}
+    \caption{Bước 1 --- Màn hình tải ảnh: tiêu đề song ngữ Anh--Việt, widget tải ảnh kéo thả, và thông báo hướng dẫn ngắn gọn. Không có sidebar hay hero image.}
     \label{fig:ui_upload}
 \end{figure}
 
 \subsection{Bước 2 --- Theo dõi tiến trình các Agent}
-Sau khi người dùng nhấn nút \textit{``Chẩn đoán ngay''}, hệ thống kích hoạt pipeline. Một thanh spinner xuất hiện ở đầu trang cùng thông báo ``Đang xử lý...''. Bên dưới, khu vực \textbf{Tiến trình các Agent} hiển thị từng thẻ bước (step card) xuất hiện tuần tự với hiệu ứng \texttt{slideUp}:
+Sau khi nhấn nút chẩn đoán, hệ thống kích hoạt pipeline. Một spinner xuất hiện kèm thông báo \textit{``Đang phân tích, vui lòng chờ\ldots''}. Bên dưới, mục \textbf{Tiến trình các Agent} hiển thị từng thẻ bước (step card) xuất hiện tuần tự --- mỗi thẻ có viền xanh lá bên trái, nền trắng, và nội dung mô tả trạng thái hiện tại của Agent:
 
 \begin{enumerate}[leftmargin=1.5cm]
-    \item \textbf{Bước 1 --- Preprocessing Agent:} Thẻ màu xanh xuất hiện khi bắt đầu tách nền, hiển thị trạng thái ``Đã hoàn thành'' và thời gian khi xong.
-    \item \textbf{Bước 2 --- Classification Agent (ViT):} Thẻ thứ hai mô tả quá trình phân loại ảnh bằng mô hình Vision Transformer.
-    \item \textbf{Bước 3 --- Morphology Agent (Gemini Vision):} Thẻ ở trạng thái ``Đang xử lý'' (có animation spinner) trong khi chờ Gemini API phản hồi --- đây là bước chiếm nhiều thời gian nhất.
-    \item \textbf{Bước 4 --- Retrieval Agent (ChromaDB):} Thẻ tra cứu cơ sở dữ liệu bệnh học.
+    \item \textbf{Preprocessing Agent:} Tiền xử lý và chuẩn hoá ảnh đầu vào.
+    \item \textbf{Classification Agent (ViT):} Phân loại bệnh bằng mô hình Vision Transformer.
+    \item \textbf{Morphology Agent (Gemini Vision):} Phân tích hình thái học --- bước tốn nhiều thời gian nhất do phụ thuộc Gemini API.
+    \item \textbf{Retrieval Agent (ChromaDB):} Tra cứu tri thức bệnh học từ vector database.
 \end{enumerate}
 
-Cơ chế này được thực hiện thông qua hàm callback \texttt{update\_progress(msg)} truyền vào pipeline:
+Cơ chế cập nhật thời gian thực được thực hiện qua hàm callback truyền vào pipeline:
 
-\begin{lstlisting}[language=Python, caption={Cơ chế callback theo dõi tiến trình các Agent}, label={lst:callback}]
+\begin{lstlisting}[language=Python, caption={Callback cập nhật tiến trình các Agent lên giao diện}, label={lst:callback}]
 logs = []
 def update_progress(msg: str):
     logs.append(msg)
     with log_container:
-        for log in logs:
+        for m in logs:
             st.markdown(
-                f'<div class="step-card">{log}</div>',
+                f'<div class="step-card">[Agent] {m}</div>',
                 unsafe_allow_html=True
             )
-with st.spinner("He thong dang xu ly..."):
-    result = run_diagnosis(image,
-                           progress_callback=update_progress)
+with st.spinner("Dang phan tich, vui long cho..."):
+    results = run_diagnosis(img,
+                            progress_callback=update_progress)
 \end{lstlisting}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.88\textwidth]{docs/images/ui_processing_step.png}
-    \caption{Bước 2 --- Màn hình theo dõi xử lý: ảnh đã được tải lên (xem trước bên phải), các thẻ Agent hiển thị trạng thái tuần tự --- hoàn thành (xanh lá), đang xử lý (spinner), và đang chờ.}
+    \caption{Bước 2 --- Màn hình theo dõi xử lý: ảnh lá lúa đã tải lên, nút chẩn đoán, và 4 thẻ Agent hiển thị trạng thái tuần tự (xanh = hoàn thành, xám = đang chờ).}
     \label{fig:ui_processing}
 \end{figure}
 
 \subsection{Bước 3 --- Xem kết quả chẩn đoán}
-Khi pipeline hoàn tất, khu vực kết quả xuất hiện với banner xanh ``Chẩn đoán hoàn tất!''. Kết quả được trình bày theo layout hai cột:
+Khi pipeline hoàn tất, banner xanh \textit{``Chẩn đoán hoàn tất!''} xuất hiện. Kết quả được trình bày tuần tự theo một cột duy nhất:
 
 \begin{itemize}[leftmargin=1.5cm]
-    \item \textbf{Cột trái --- Kết quả phân loại ViT:} Hiển thị tên bệnh dưới dạng badge màu sắc tùy theo loại (xanh lá: Blast, cam: Brown Spot, đỏ: Blight, vàng: Tungro), thanh tiến trình độ tin cậy, phân phối xác suất đầy đủ của 4 lớp, và ảnh lá sau khi tách nền trắng bởi Preprocessing Agent.
-    \item \textbf{Cột phải --- Phân tích hình thái Gemini Vision:} Mô tả chi tiết màu sắc, hình dạng và phân bố vết bệnh do Gemini 2.5 Flash phân tích từ ảnh thực.
-\end{itemize}
-
-Bên dưới hai cột là hai expander có thể mở rộng:
-\begin{itemize}[leftmargin=1.5cm]
-    \item \textbf{Tri thức ChromaDB RAG:} Thông tin bệnh học tham chiếu từ cơ sở dữ liệu khoa học.
-    \item \textbf{Báo cáo tổng hợp đầy đủ:} Văn bản báo cáo do Coordinator Agent biên soạn bằng tiếng Việt, kèm nút tải xuống định dạng .txt.
+    \item \textbf{Kết quả phân loại:} Badge hình viên thuốc màu xanh lá hiển thị tên bệnh, tiếp theo là dòng độ tin cậy (ví dụ: \textit{Độ tin cậy: 96.8\%}) và thanh tiến trình trực quan.
+    \item \textbf{Phân tích hình thái lá:} Đoạn văn tiếng Việt do Gemini 2.5 Flash tạo ra, mô tả màu sắc, hình dạng và phân bố vết bệnh trên lá.
+    \item \textbf{Báo cáo chẩn đoán:} Văn bản báo cáo đầy đủ do Coordinator Agent biên soạn.
+    \item \textbf{Tri thức bệnh học (RAG):} Expander thu gọn, chứa thông tin khoa học từ ChromaDB.
+    \item \textbf{Nút tải xuống:} Tải báo cáo (\texttt{.txt}) với tên tệp theo bệnh
+          (ví dụ: \texttt{BaoCao\_Blast.txt}).
 \end{itemize}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.88\textwidth]{docs/images/ui_results_step.png}
-    \caption{Bước 3 --- Màn hình kết quả: badge phân loại bệnh (Blast 96.8\%), thanh độ tin cậy, phân phối xác suất 4 lớp, ảnh tách nền và phân tích hình thái Gemini Vision theo layout hai cột.}
+    \caption{Bước 3 --- Màn hình kết quả: badge phân loại bệnh (Blast -- Đạo ôn, 96.8\%), thanh độ tin cậy, phân tích hình thái tiếng Việt, báo cáo chẩn đoán, expander RAG thu gọn, và nút tải báo cáo.}
     \label{fig:ui_results}
 \end{figure}
 
