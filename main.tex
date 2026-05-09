@@ -1,0 +1,466 @@
+% !TEX program = xelatex
+
+\documentclass{uetgraduation}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{float}
+\usepackage{multirow}
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+
+\begin{document}
+\setlist[itemize]{left=2cm}
+\lstset{
+    language=Python,
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+
+\studentname{Trần Duy Hưng}
+\title{PHÁT TRIỂN AI AGENTS \\ PHÁT HIỆN BỆNH TRÊN LÁ LÚA}
+\documenttype{Đồ án tốt nghiệp đại học chính quy}
+\major{Kỹ thuật máy tính}
+\year{2026}
+\supervisor{TS. Phạm Duy Hưng}
+
+\makecovers
+
+\begin{preamble}{Tóm tắt}
+\addcontentsline{toc}{chapter}{Tóm tắt}
+\textbf{Tóm tắt:} Đồ án này trình bày quá trình xây dựng một hệ thống chẩn đoán bệnh cây lúa ứng dụng kiến trúc Đa Tác Nhân (Multi-Agent System). Xuất phát từ thực tế nông dân vùng sâu vùng xa khó tiếp cận chuyên gia nông nghiệp, đề tài hướng đến việc cung cấp công cụ chẩn đoán tự động, có thể sử dụng qua thiết bị di động có kết nối Internet. Bốn loại bệnh được hỗ trợ là Đạo ôn (\textit{Rice Blast}), Bạc lá (\textit{Bacterial Blight}), Đốm nâu (\textit{Brown Spot}) và Vàng lùn (\textit{Tungro}).
+
+Về mặt kỹ thuật, hệ thống gồm năm Agent chuyên biệt: Preprocessing Agent (tiền xử lý ảnh), Classification Agent (phân loại bệnh bằng Vision Transformer), Morphology Agent (phân tích hình thái bằng Gemini Vision), Retrieval Agent (tra cứu tri thức từ ChromaDB), và Coordinator Agent (tổng hợp báo cáo). Mô hình ViT được sử dụng trực tiếp qua Hugging Face mà không cần huấn luyện lại, nhờ đó tiết kiệm tài nguyên tính toán đáng kể. Cơ chế RAG với ChromaDB được đưa vào để đảm bảo các khuyến nghị điều trị được tham chiếu từ tri thức có kiểm chứng, hạn chế hiện tượng ``ảo giác'' của mô hình ngôn ngữ lớn.
+
+Giao diện người dùng được xây dựng bằng Streamlit, API backend sử dụng FastAPI, và toàn bộ hệ thống được đóng gói bằng Docker. Trong quá trình thực hiện, một số khó khăn đã gặp phải như latency cao của Gemini API ($\approx 8$--$10$ giây mỗi lần gọi) và yêu cầu bộ nhớ lớn khi tải mô hình ViT lên CPU. Kết quả đánh giá cho thấy hệ thống đạt F1-score trung bình $\geq 0.96$ trên tập kiểm thử, thời gian phản hồi trung bình khoảng $14$--$15$ giây cho một lần chẩn đoán hoàn chỉnh.
+
+\vspace{0.5cm}
+\noindent \textit{\textbf{Từ khóa:} Vision Transformer, Multi-Agent System, RAG, ChromaDB, Gemini, FastAPI, Streamlit, Bệnh cây lúa.}
+\end{preamble}
+\clearpage
+\addcontentsline{toc}{chapter}{Lời cam đoan}
+
+\begin{center}
+    \textbf{\fontsize{13pt}{19pt}\selectfont LỜI CAM ĐOAN}
+\end{center}
+\vspace{0.5cm}
+
+Em xin cam đoan đây là công trình nghiên cứu của riêng em dưới sự hướng dẫn của giảng viên. Các nội dung nghiên cứu, kết quả phân tích trong đồ án là hoàn toàn trung thực, khách quan và chưa từng được công bố trong bất kỳ công trình nào khác. Em không sao chép các tài liệu, dự án hoặc công trình nghiên cứu của tác giả khác mà không chỉ rõ trong phần tài liệu tham khảo. Tất cả các mô hình, số liệu và thuật toán lập trình đều được xây dựng dựa trên sự hiểu biết và áp dụng công nghệ khoa học thực tế. Nếu phát hiện có sự sao chép vi phạm bản quyền hay vi phạm đạo đức học thuật, em xin hoàn toàn chịu trách nhiệm trước Hội đồng nhà trường.
+
+\vspace{1.5cm}
+\hfill
+\begin{minipage}{0.4\textwidth}
+\centering
+\textit{Hà Nội , ngày ...... tháng ...... năm 2026} \\[1cm]
+\textbf{Sinh viên thực hiện}\\(Ký và ghi rõ họ tên) \\[2cm] \textbf{Trần Duy Hưng}
+\end{minipage}
+\clearpage
+
+% ─────────────────────────────────────────────
+% 3. LỜI CẢM ƠN
+% ─────────────────────────────────────────────
+\addcontentsline{toc}{chapter}{Lời cảm ơn}
+
+\begin{center}
+    \textbf{\fontsize{13pt}{19pt}\selectfont LỜI CẢM ƠN}
+\end{center}
+\vspace{0.5cm}
+
+Lời đầu tiên, em xin gửi lời cảm ơn đến Khoa Điện tử Viễn thông, Trường Đại học Công nghệ, Đại học Quốc Gia Hà Nội đã hỗ trợ, tạo điều kiện tốt nhất cho em để hoàn thành khóa luận tốt nghiệp này.
+
+Em cũng xin được bày tỏ lòng biết ơn sâu sắc tới thầy TS. Phạm Duy Hưng đã dành thời gian quý báu, tận tình hướng dẫn, đóng góp những ý kiến xác đáng để em có thể hoàn thành khóa luận một cách tốt nhất.
+
+Cuối cùng, em xin gửi lời cảm ơn sâu sắc đến các thầy cô giảng viên Trường Đại học Công nghệ, Đại học Quốc Gia Hà Nội đã luôn luôn chỉ dạy và giúp đỡ em, đặt cho em nền tảng vững chắc để có thể phát triển trong ngành Kỹ thuật Máy tính. Em cũng xin cảm ơn gia đình và bạn bè đã chăm sóc, giúp đỡ, làm chỗ dựa tinh thần to lớn cho em vượt qua những khó khăn trong quá trình học tập.
+
+Do thời gian có hạn, kinh nghiệm còn hạn chế, khóa luận tốt nghiệp không tránh khỏi những thiếu sót. Em rất mong nhận được sự đóng góp của các thầy cô giảng viên để khóa luận được hoàn thiện hơn.
+
+Em xin chân thành cảm ơn!
+
+\clearpage
+
+\begin{contentlisting}
+
+\tableofcontents
+
+\listoffigures
+\listoftables
+
+\begin{contentlistingsection}{Các từ viết tắt}
+AI - Artificial Intelligence: Trí tuệ nhân tạo
+
+Agent - AI Agent: Tác nhân trí tuệ nhân tạo
+
+API - Application Programming Interface: Giao diện lập trình ứng dụng
+
+ASGI - Asynchronous Server Gateway Interface
+
+CNN - Convolutional Neural Network: Mạng nơ-ron tích chập
+
+CLS - Classification Token: Token phân loại đặc biệt trong ViT
+
+CORS - Cross-Origin Resource Sharing
+
+CPU - Central Processing Unit: Bộ xử lý trung tâm
+
+DB - Database: Cơ sở dữ liệu
+
+DL - Deep Learning: Học sâu
+
+FFN - Feed-Forward Network: Mạng truyền thẳng
+
+GELU - Gaussian Error Linear Unit: Hàm kích hoạt GELU
+
+GPU - Graphics Processing Unit: Bộ xử lý đồ họa
+
+HTTP - Hypertext Transfer Protocol
+
+LLM - Large Language Model: Mô hình ngôn ngữ lớn
+
+MAS - Multi-Agent System: Hệ thống đa tác nhân
+
+ML - Machine Learning: Học máy
+
+MLP - Multi-Layer Perceptron: Perceptron đa lớp
+
+MHSA - Multi-Head Self-Attention: Chú ý bản thân đa đầu
+
+NLP - Natural Language Processing: Xử lý ngôn ngữ tự nhiên
+
+PNG - Portable Network Graphics: Định dạng ảnh PNG
+
+RAG - Retrieval-Augmented Generation: Tìm kiếm tăng cường bằng truy xuất
+
+REST - Representational State Transfer
+
+RGB - Red-Green-Blue: Không gian màu RGB
+
+UI - User Interface: Giao diện người dùng
+
+ViT - Vision Transformer: Bộ biến đổi thị giác
+
+\end{contentlistingsection}
+
+\begin{contentlistingsection}{Các ký hiệu toán học}
+
+$Q, K, V$ - Query, Key, Value matrices: Ma trận Query, Key, Value trong cơ chế Attention
+
+$d_k$ - Key Dimension: Chiều không gian của vector khóa
+
+$\mathbf{A}, \mathbf{B}$ - Embedding Vectors: Các vector nhúng
+
+$\cos(\theta)$ - Cosine Similarity: Độ tương đồng cosine giữa hai vector
+
+$\hat{y}$ - Predicted Label: Nhãn dự đoán của mô hình
+
+$\sigma(\cdot)$ - Sigmoid Function: Hàm sigmoid
+
+$\text{softmax}(\cdot)$ - Softmax Function: Hàm softmax chuẩn hóa xác suất
+
+$\mathcal{L}$ - Loss Function: Hàm mất mát
+
+$\nabla$ - Gradient Operator: Toán tử gradient
+
+$\|\cdot\|$ - Euclidean Norm (L2 Norm): Chuẩn Euclidean
+
+\end{contentlistingsection}
+\end{contentlisting}
+\begin{center}
+    \textbf{\fontsize{16pt}{19pt}\selectfont Mở đầu}
+\end{center}
+\vspace{0.5cm}
+\addcontentsline{toc}{chapter}{Mở đầu}
+
+\textbf{Tính cấp thiết của đề tài:} Việt Nam là quốc gia xuất khẩu gạo lớn thứ ba thế giới, với sản lượng đạt 43.5 triệu tấn thóc năm 2022 và kim ngạch xuất khẩu hơn 3.5 tỷ USD. Lúa gạo không chỉ là mặt hàng xuất khẩu chủ lực mà còn là nguồn thu nhập trực tiếp của hàng triệu hộ nông dân, đặc biệt ở Đồng bằng sông Cửu Long và Đồng bằng sông Hồng \cite{fao2023}. Tuy nhiên, năng suất lúa thường xuyên bị đe dọa bởi bệnh hại. Theo FAO, riêng bệnh Đạo ôn hàng năm gây thiệt hại tương đương lượng gạo đủ nuôi sống 60 triệu người \cite{valent1991}. Bốn loại bệnh phổ biến nhất --- Đạo ôn, Bạc lá, Đốm nâu và Tungro --- có thể làm giảm năng suất từ 20\% đến 100\% nếu không được phát hiện sớm. Điểm mấu chốt là: bệnh lúa chỉ có thể điều trị hiệu quả trong vài ngày đầu bùng phát; để quá 5--7 ngày, nông dân có thể mất toàn bộ vụ mùa. Vấn đề là việc chẩn đoán đúng loại bệnh đòi hỏi kinh nghiệm thực địa nhiều năm, trong khi số lượng cán bộ khuyến nông ngày càng không đủ đáp ứng nhu cầu tại vùng sâu vùng xa. Nông dân thường phải chờ nhiều ngày để được tư vấn, hoặc phải phun thuốc theo kinh nghiệm --- dẫn đến lãng phí và ô nhiễm môi trường. Đây là vấn đề thực tế mà đề tài này hướng đến giải quyết.
+
+\textbf{Ý nghĩa khoa học và thực tiễn:} Về mặt khoa học, đề tài thử nghiệm việc kết hợp ba hướng tiếp cận còn tương đối mới trong lĩnh vực nông nghiệp thông minh: thay thế CNN bằng Vision Transformer để tận dụng cơ chế attention toàn cục; sử dụng RAG để hạn chế hallucination khi LLM đưa ra khuyến nghị điều trị; và tổ chức các mô-đun AI thành kiến trúc đa tác nhân để dễ bảo trì và mở rộng. Sự kết hợp này, theo tìm hiểu của tác giả, chưa được áp dụng đồng bộ trong các nghiên cứu về bệnh học cây lúa tại Việt Nam. Về mặt thực tiễn, sản phẩm đầu ra là ứng dụng web đầy đủ chức năng: giao diện song ngữ Việt--Anh qua Streamlit, API backend qua FastAPI, và hạ tầng đóng gói Docker. Nông dân chỉ cần chụp ảnh lá lúa bằng điện thoại và tải lên để nhận báo cáo chẩn đoán bằng tiếng Việt trong vòng khoảng 15 giây.
+
+\textbf{Đối tượng và phạm vi nghiên cứu:}
+\\ \indent Đối tượng nghiên cứu:
+\begin{itemize}[leftmargin=1.5cm]
+    \item Hình thái các vết bệnh trên phạm vi cấu trúc lá lúa.
+    \item Bộ dữ liệu ảnh lá lúa mắc bệnh từ Hugging Face.
+    \item Kiến trúc mô hình Vision Transformer và kỹ thuật fine-tuning.
+    \item Cơ chế Retrieval-Augmented Generation và cơ sở dữ liệu vector.
+    \item Thiết kế hệ thống đa tác nhân cho bài toán phân tích ảnh nông nghiệp.
+\end{itemize}
+
+Phạm vi nghiên cứu:
+\begin{itemize}[leftmargin=1.5cm]
+    \item Bốn loại bệnh lúa: Đạo ôn, Bạc lá, Đốm nâu, Tungro.
+    \item Ảnh đầu vào dạng JPG/PNG, kích thước tối thiểu $224 \times 224$ pixel.
+    \item Triển khai trên môi trường Linux/MacOS với Python 3.12.
+    \item Giao diện tiếng Việt, hướng đến người dùng tại Việt Nam.
+\end{itemize}
+
+\textbf{Phương pháp nghiên cứu:}
+\begin{enumerate}[leftmargin=1.5cm]
+    \item Nghiên cứu lý thuyết: Tổng hợp tài liệu về ViT, Multi-Agent System, RAG, LLM từ các bài báo khoa học và tài liệu kỹ thuật.
+    \item Thiết kế kiến trúc hệ thống: Xây dựng sơ đồ kiến trúc microservice và mô hình Agent-based.
+    \item Lập trình và tích hợp: Triển khai từng Agent, tích hợp các mô hình AI, xây dựng API và giao diện.
+    \item Kiểm thử và đánh giá: Kiểm thử đơn vị (unit test) và tích hợp (integration test) bằng pytest; đánh giá độ chính xác trên tập dữ liệu chưa từng thấy (unseen validation set).
+\end{enumerate}
+
+\textbf{Cấu trúc đồ án:}
+Đồ án được tổ chức thành ba chương chính:
+
+\begin{itemize}[leftmargin=1.5cm]
+    \item \textbf{Chương 1 --- Cơ sở lý thuyết:} Trình bày nền tảng lý thuyết về bệnh học cây lúa, mô hình CNN, Vision Transformer, mô hình ngôn ngữ lớn, kỹ thuật RAG và ChromaDB, cùng lý thuyết về hệ thống đa tác nhân.
+    \item \textbf{Chương 2 --- Thiết kế và Kiến trúc hệ thống:} Mô tả chi tiết kiến trúc tổng thể, thiết kế từng Agent, thiết kế API RESTful và cơ sở dữ liệu vector.
+    \item \textbf{Chương 3 --- Triển khai, Giao diện và Kiểm thử:} Đề cập đến môi trường triển khai Docker, giao diện người dùng Streamlit, phương pháp kiểm thử và phân tích kết quả thực nghiệm.
+\end{itemize}
+\clearpage
+\include{chapters/chapter1}
+\include{chapters/chapter2}
+\include{chapters/chapter3}
+\include{chapters/chapter4}
+\include{chapters/chapter5}
+
+\addcontentsline{toc}{chapter}{Tài liệu tham khảo}
+
+\begin{thebibliography}{9}
+\begin{bibsection}{Tiếng Anh}
+\bibitem{ibm2025}
+IBM. (2025). \textit{The 2025 Guide to AI Agents}. IBM Think. Truy cập: \url{https://www.ibm.com/think/ai-agents}.
+
+\bibitem{sumers2023}
+Sumers, T., Yao, S., Narasimhan, K., \& Griffiths, T. L. (2023). \textit{Cognitive Architectures for Language Agents}. Transactions on Machine Learning Research.
+
+\bibitem{dosovitskiy2020}
+Dosovitskiy, A., Beyer, L., Kolesnikov, A., Weissenborn, D., Zhai, X., Unterthiner, T., et al. (2021). \textit{An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale}. International Conference on Learning Representations (ICLR 2021).
+
+\bibitem{vaswani2017}
+Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., et al. (2017). \textit{Attention is All You Need}. Advances in Neural Information Processing Systems (NeurIPS 2017), 30.
+
+\bibitem{he2016}
+He, K., Zhang, X., Ren, S., \& Sun, J. (2016). \textit{Deep Residual Learning for Image Recognition}. Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR 2016), 770--778.
+
+\bibitem{lewis2020}
+Lewis, P., Perez, E., Piktus, A., Petroni, F., Karpukhin, V., Goyal, N., et al. (2020). \textit{Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks}. Advances in Neural Information Processing Systems (NeurIPS 2020), 33.
+
+\bibitem{google2023}
+Gemini Team, Google. (2023). \textit{Gemini: A Family of Highly Capable Multimodal Models}. arXiv preprint arXiv:2312.11805.
+
+\bibitem{langchaindocs}
+Chase, H. (2022). \textit{LangChain: Building Applications with Large Language Models}. GitHub Repository. Truy cập: \url{https://github.com/langchain-ai/langchain}.
+
+\bibitem{huggingface2024}
+PrithivMLmods. (2024). \textit{Rice-Leaf-Disease: Fine-tuned ViT for Rice Disease Classification}. Hugging Face Model Hub. Truy cập: \url{https://huggingface.co/prithivMLmods/Rice-Leaf-Disease}.
+
+\bibitem{chromadb2023}
+Chroma AI. (2023). \textit{Chroma: The Open-Source Embedding Database}. GitHub Repository. Truy cập: \url{https://github.com/chroma-core/chroma}.
+
+\bibitem{fastapi2024}
+Ramírez, S. (2019--2024). \textit{FastAPI: Modern, Fast Web Framework for Building APIs with Python}. Tài liệu chính thức. Truy cập: \url{https://fastapi.tiangolo.com}.
+
+\bibitem{streamlit2024}
+Streamlit Inc. (2019--2024). \textit{Streamlit: The Fastest Way to Build and Share Data Apps}. Tài liệu chính thức. Truy cập: \url{https://docs.streamlit.io}.
+
+\bibitem{rembg2023}
+Gatis, D. (2021). \textit{Rembg: Tool to Remove Images Background}. GitHub Repository. Truy cập: \url{https://github.com/danielgatis/rembg}.
+
+\bibitem{mohanty2016}
+Mohanty, S. P., Hughes, D. P., \& Salath\'e, M. (2016). \textit{Using deep learning for image-based plant disease detection}. Frontiers in Plant Science, 7, 1419.
+\newpage
+\bibitem{sethy2020}
+Sethy, P. K., Barpanda, N. K., Rath, A. K., \& Behera, S. K. (2020). \textit{Deep feature based rice leaf disease identification using support vector machine}. Computers and Electronics in Agriculture, 175, 105527.
+
+\bibitem{jiang2019}
+Jiang, F., Lu, Y., Chen, Y., Cai, D., \& Li, G. (2019). \textit{Image recognition of four rice leaf diseases based on deep learning and support vector machine}. Computers and Electronics in Agriculture, 179, 105824.
+
+\bibitem{chen2021}
+Chen, J., Chen, J., Zhang, D., Sun, Y., \& Nanehkaran, Y. A. (2021). \textit{Using deep transfer learning for image-based plant disease identification}. Computers and Electronics in Agriculture, 173, 105393.
+
+\bibitem{saleem2022}
+Saleem, M. H., Potgieter, J., \& Arif, K. M. (2022). \textit{Plant disease detection and classification by deep learning}. Plants, 11(10), 1237.
+
+\bibitem{islam2022}
+Islam, M. T., Tushar, M. S. U., \& Abujar, S. (2022). \textit{Rice disease detection using Vision Transformer}. Proceedings of the International Conference on Computing Advancements (ICCA 2022).
+
+\bibitem{khichar2023}
+Khichar, C., \& Mehta, R. (2023). \textit{AgriBot: A large language model-based agricultural advisory chatbot}. arXiv preprint arXiv:2310.07849.
+
+\bibitem{mohanty2023}
+Mohanty, A., Kumar, R., \& Singh, P. (2023). \textit{RAG-based agricultural knowledge retrieval: reducing hallucination in crop disease advisory systems}. arXiv preprint arXiv:2312.04901.
+
+\bibitem{valent1991}
+Valent, B. (1990). \textit{Rice Blast as a Model System for Plant Pathology}. Phytopathology, 80(1), 33--36.
+
+\bibitem{fao2023}
+FAO. (2023). \textit{Rice Market Monitor}. Food and Agriculture Organization of the United Nations. Truy cập: \url{https://www.fao.org/economic/est/est-commodities/rice}.
+
+\bibitem{lecun1998}
+LeCun, Y., Bottou, L., Bengio, Y., \& Haffner, P. (1998). \textit{Gradient-Based Learning Applied to Document Recognition}. Proceedings of the IEEE, 86(11), 2278--2324.
+
+\bibitem{krizhevsky2012}
+Krizhevsky, A., Sutskever, I., \& Hinton, G. E. (2012). \textit{ImageNet Classification with Deep Convolutional Neural Networks}. Advances in Neural Information Processing Systems (NeurIPS 2012), 25.
+
+\bibitem{devlin2019}
+Devlin, J., Chang, M. W., Lee, K., \& Toutanova, K. (2019). \textit{BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding}. Proceedings of NAACL-HLT 2019, 4171--4186.
+\end{bibsection}
+\end{thebibliography}
+\appendix
+\chapter{Mã nguồn các thành phần cốt lõi}
+\section{Cấu hình hệ thống}
+\begin{lstlisting}[language=Python, caption={src/core/config.py --- Quản lý cấu hình bằng Pydantic Settings}, label={lst:config}]
+import os
+from pydantic_settings import BaseSettings
+
+class Settings(BaseSettings):
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    HF_TOKEN: str = os.getenv("HF_TOKEN", "")
+
+    # Model configs
+    VIT_MODEL_NAME: str = "prithivMLmods/Rice-Leaf-Disease"
+    VECTOR_DB_PATH: str = "./data/processed/chroma_db"
+
+    model_config = {"env_file": ".env", "extra": "ignore"}
+
+settings = Settings()
+\end{lstlisting}
+
+\section{Khởi tạo cơ sở tri thức ChromaDB}
+\begin{lstlisting}[language=Python, caption={src/core/knowledge\_setup.py --- Lập chỉ mục tài liệu bệnh học vào ChromaDB}, label={lst:knowledge}]
+def setup_knowledge_base():
+    embeddings = GoogleGenerativeAIEmbeddings(
+        model="models/gemini-embedding-001",
+        google_api_key=settings.GEMINI_API_KEY
+    )
+    documents = [
+        Document(
+            page_content="""Benh Dao on (Rice Blast):
+Tac nhan: Nam Pyricularia oryzae.
+Dac diem: Vet benh hinh thoi, tam mau xam, vien nau.
+Dieu kien: Do am cao, nhiet do 20-28 do C.
+Phong tri: Bon phan can doi, thuoc bao ve thuc vat sinh hoc.""",
+            metadata={"disease": "Blast", "name_vn": "Dao on"} ),
+        # ... (3 tai lieu con lai tuong tu)
+    ]
+    vectorstore = Chroma.from_documents(
+        documents=documents,
+        embedding=embeddings,
+        persist_directory=settings.VECTOR_DB_PATH)
+    print("Vector database created successfully!")
+\end{lstlisting}
+
+\section{Workflow Bridge}
+\begin{lstlisting}[language=Python, caption={src/core/workflow.py --- Bridge giữa tầng UI/API và tầng Agent}, label={lst:workflow}]
+# Singleton - chi tai mo hinh mot lan khi server khoi dong
+_coordinator_instance: CoordinatorAgent | None = None
+
+def get_coordinator() -> CoordinatorAgent:
+    global _coordinator_instance
+    if _coordinator_instance is None:
+        _coordinator_instance = CoordinatorAgent()
+    return _coordinator_instance
+
+def run_diagnosis(image: Image.Image,
+                  progress_callback=None) -> dict:
+    """
+    Args:
+        image: PIL Image cua la lua can chan doan.
+        progress_callback: Ham nhan chuoi mo ta buoc hien tai.
+    Returns:
+        dict: preprocessed_image, classification,
+              morphology, knowledge, final_report
+    """
+    coordinator = get_coordinator()
+    return coordinator.run(image,
+                           progress_callback=progress_callback)
+\end{lstlisting}
+
+\chapter{Mẫu báo cáo chẩn đoán đầu ra}
+\noindent Dưới đây là ví dụ về báo cáo chẩn đoán thực tế do hệ thống sinh ra khi phân tích ảnh lá lúa mắc bệnh Đạo ôn:
+
+\vspace{0.5cm}
+\noindent\rule{\textwidth}{0.8pt}
+\begin{minipage}{\textwidth}
+\vspace{0.3cm}
+\textbf{\large BÁO CÁO CHẨN ĐOÁN BỆNH LÚA}\\
+\textbf{Thời gian:} 04/05/2026 | \textbf{Độ tin cậy:} 96.8\%
+
+\bigskip
+\noindent\textbf{Kết luận chẩn đoán:}
+
+Lá lúa được phân tích bị mắc bệnh \textbf{Đạo ôn (Rice Blast)} với độ tin cậy 96.8\%. Kết quả này được xác nhận bởi phân tích hình thái của Gemini Vision, cho thấy sự hiện diện rõ ràng của các vết tổn thương đặc trưng của bệnh Đạo ôn.
+
+\bigskip
+\noindent\textbf{Đặc điểm nhận dạng quan sát được:}
+
+Trên bề mặt lá lúa quan sát thấy nhiều vết tổn thương có hình thoi điển hình, kích thước từ 0.5--1.5cm. Tâm vết bệnh có màu xám nhạt đến trắng xám, bao quanh bởi viền màu nâu đỏ đậm. Một số vết bệnh có quầng vàng nhạt ở ngoài cùng. Các vết bệnh phân bố tản mạn trên toàn bộ phiến lá, mật độ cao hơn ở phần giữa và ngọn lá.
+
+\bigskip
+\noindent\textbf{Nguyên nhân \& Điều kiện gây bệnh:}
+
+Bệnh gây ra bởi nấm \textit{Pyricularia oryzae}. Điều kiện thuận lợi: độ ẩm không khí $>90\%$, nhiệt độ $20$--$28^\circ$C, trời âm u nhiều sương mù. Ruộng bón thừa đạm tạo mô lá mềm yếu, dễ bị nấm xâm nhập.
+
+\bigskip
+\noindent\textbf{Khuyến nghị phòng trị sinh học:}
+\textbf{Khẩn cấp (trong 24--48 giờ):}
+\begin{itemize}
+    \item Phun thuốc đặc trị nấm nhóm Triazole (Propiconazole, Tebuconazole) theo liều khuyến cáo.
+    \item Không phun vào giữa trưa nắng gắt, ưu tiên phun sáng sớm hoặc chiều mát.
+\end{itemize}
+\textbf{Phòng ngừa lây lan:}
+\begin{itemize}
+    \item Ngưng bón đạm ngay lập tức để hạn chế mô lá mềm.
+    \item Bổ sung Kali và Silic để tăng cường thành tế bào.
+    \item Phun chế phẩm sinh học Bacillus subtilis cho cây lân cận chưa nhiễm bệnh.
+\end{itemize}
+\vspace{0.3cm}
+\end{minipage}
+\noindent\rule{\textwidth}{0.8pt}
+
+\chapter{Hướng dẫn triển khai nhanh}
+
+\section{Phương thức 1: Script tự động (Khuyến nghị cho phát triển)}
+\begin{lstlisting}[language=bash, numbers=none, caption={Khởi động 1-click với start.sh}]
+# Buoc 1: Sao chep file moi truong
+cp .env.example .env
+# Buoc 2: Them GEMINI_API_KEY vao file .env
+nano .env
+# Buoc 3: Chay script tu dong
+chmod +x start.sh && ./start.sh
+\end{lstlisting}
+
+\noindent Script tự động: tạo virtual environment, cài dependencies, khởi tạo ChromaDB, khởi động FastAPI (cổng 8000) và Streamlit (cổng 8506).
+
+\section{Phương thức 2: Docker (Khuyến nghị cho sản xuất)}
+\begin{lstlisting}[language=bash, numbers=none, caption={Triển khai với Docker Compose}]
+# Them GEMINI_API_KEY vao .env
+echo "GEMINI_API_KEY=your_key_here" > .env
+# Build va khoi dong ca hai container
+docker-compose up --build -d
+# Kiem tra trang thai
+docker-compose ps
+# Xem log
+docker-compose logs -f frontend
+\end{lstlisting}
+
+\noindent Sau khi khởi động thành công:
+\begin{itemize}
+    \item Giao diện Streamlit: \url{http://localhost:8506}
+    \item FastAPI Docs: \url{http://localhost:8000/docs}
+\end{itemize}
+\end{document}
