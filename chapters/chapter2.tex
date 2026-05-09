@@ -1,0 +1,189 @@
+\chapter{Thiết kế và Kiến trúc Hệ thống Multi-Agent}
+
+\section{Kiến trúc tổng thể}
+
+\subsection{Định hướng thiết kế}
+Khi bắt đầu thiết kế hệ thống, tác giả đặt ra một câu hỏi thực tế: nếu cần thêm khả năng phát hiện một loại bệnh mới trong tương lai, cần sửa bao nhiêu chỗ trong code? Câu trả lời dẫn đến việc lựa chọn kiến trúc đa tác nhân theo nguyên tắc \textbf{Separation of Concerns} --- mỗi Agent chịu trách nhiệm duy nhất cho một nhiệm vụ và không phụ thuộc trực tiếp vào Agent khác. Nhờ đó, để thêm một Agent mới (ví dụ Agent kiểm tra chất lượng ảnh đầu vào), chỉ cần viết thêm một lớp Python và đăng ký vào Coordinator.
+
+Kiến trúc ba tầng được áp dụng:
+\begin{itemize}[leftmargin=1.5cm]
+    \item \textbf{Tầng giao diện:} Streamlit UI --- nơi người dùng tương tác trực tiếp.
+    \item \textbf{Tầng xử lý:} FastAPI Backend + Agent Pipeline --- điều phối toàn bộ logic nghiệp vụ.
+    \item \textbf{Tầng dữ liệu:} ChromaDB Vector Store + trọng số mô hình ViT.
+\end{itemize}
+
+\subsection{Luồng xử lý dữ liệu end-to-end}
+Kết nối giữa giao diện Streamlit và hệ thống Agent được thực hiện qua mô-đun \texttt{src/core/workflow.py} --- một lớp trung gian (bridge) được thiết kế để tách biệt logic UI và logic nghiệp vụ. Lý do dùng bridge thay vì gọi trực tiếp: Streamlit và FastAPI có chu kỳ sống khác nhau, và trong tương lai nếu muốn thay Streamlit bằng một frontend khác (React, Flutter), chỉ cần viết lại phần gọi bridge mà không đụng vào Agent.
+
+Luồng dữ liệu đầy đủ diễn ra như sau:
+\begin{enumerate}[leftmargin=1.5cm]
+    \item Người dùng tải ảnh lá lúa lên giao diện Streamlit (JPG/PNG/WebP).
+    \item Streamlit gọi hàm \texttt{run\_diagnosis(image, callback)} qua workflow bridge.
+    \item \texttt{CoordinatorAgent.run()} nhận ảnh và \texttt{callback}, lần lượt gọi 4 Agent theo thứ tự, gọi \texttt{callback(trạng thái)} sau mỗi bước.
+    \item Kết quả trả về là một từ điển Python gồm 5 khóa: \texttt{disease\_label}, \texttt{confidence}, \texttt{morphology\_analysis}, \texttt{knowledge\_info}, \texttt{final\_report}.
+    \item Streamlit đọc từng khóa và hiển thị theo bố cục đã thiết kế.
+\end{enumerate}
+
+\begin{figure}[H]{Sơ đồ kiến trúc chi tiết hệ thống Đa Tác Vụ, thể hiện mối quan hệ giữa các Agent, API và cơ sở dữ liệu.}
+    \centering
+    \includegraphics[width=\textwidth]{docs/images/leaf.drawio.png}
+\end{figure}
+
+\section{Thiết kế chi tiết từng Agent}
+\subsection{Preprocessing Agent}
+\textbf{Chức năng:} Chuẩn hóa ảnh đầu vào, tách nền và tăng cường độ tương phản.
+
+\textbf{Input:} Đối tượng \texttt{PIL.Image} bất kỳ kích thước, bất kỳ định dạng.
+
+\textbf{Output:} Đối tượng \texttt{PIL.Image} chuẩn hóa $224 \times 224$ RGB.
+
+\textbf{Thuật toán xử lý:}
+\begin{enumerate}[leftmargin=1.5cm]
+    \item \textbf{Tách nền:} Thư viện \texttt{rembg} sử dụng mô hình U-Net thu nhỏ (IS-Net, kích thước $\sim$170MB) được huấn luyện trên tập dữ liệu lớn để phân vùng đối tượng chính. Đầu ra là ảnh RGBA với kênh alpha là mask tách nền. Vùng nền alpha $< 127$ được thay bằng nền trắng $(255, 255, 255)$.
+    \item \textbf{Tăng cường tương phản:} Dùng \texttt{PIL.ImageEnhance.Contrast} với hệ số $1.2$ ($+20\%$) giúp làm nổi bật các vết bệnh.
+    \item \textbf{Resampling:} Resize về $224 \times 224$ bằng thuật toán Lanczos cho chất lượng tốt nhất khi thu nhỏ ảnh.
+\end{enumerate}
+\newpage
+\begin{lstlisting}[language=Python, caption={Preprocessing Agent --- xử lý ảnh đầu vào}, label={lst:preprocessing}]
+class PreprocessingAgent:
+    def process(self, image: Image.Image) -> Image.Image:
+        # 1. Tach nen bang rembg (U-Net)
+        image_no_bg = remove(image)
+
+        # 2. Chuyen RGBA -> RGB voi nen trang
+        if image_no_bg.mode in ('RGBA', 'LA'):
+            background = Image.new('RGB', image_no_bg.size, (255, 255, 255))
+            background.paste(image_no_bg, mask=image_no_bg.split()[3])
+            image_no_bg = background
+
+        # 3. Tang cuong tuong phan +20%
+        enhancer = ImageEnhance.Contrast(image_no_bg)
+        image_enhanced = enhancer.enhance(1.2)
+
+        # 4. Resize 224x224 Lanczos
+        return image_enhanced.resize((224, 224), Image.Resampling.LANCZOS)
+\end{lstlisting}
+
+\subsection{Classification Agent}
+\textbf{Chức năng:} Phân loại bệnh lúa từ ảnh đã tiền xử lý.
+
+\textbf{Mô hình:} \texttt{prithivMLmods/Rice-Leaf-Disease} trên Hugging Face --- ViT-Base được fine-tune trên tập dữ liệu lá lúa với 4 nhãn: Blast, Blight, Brown Spot, Tungro.
+
+\textbf{Quy trình suy luận:}
+\begin{enumerate}[leftmargin=1.5cm]
+    \item \textbf{Tiền xử lý ảnh:} \texttt{AutoImageProcessor} chuẩn hóa pixel về $[-1, 1]$, chuyển sang tensor PyTorch.
+    \item \textbf{Suy luận:} Đưa tensor qua mô hình ViT trong chế độ \texttt{torch.no\_grad()} để tiết kiệm bộ nhớ.
+    \item \textbf{Tính xác suất:} Áp dụng Softmax lên vector logits 4 chiều:
+    \begin{equation}
+        P(y_i | \mathbf{x}) = \frac{e^{z_i}}{\displaystyle\sum_{j=1}^{4} e^{z_j}}
+        \label{eq:softmax}
+    \end{equation}
+    \item \textbf{Đầu ra:} Từ điển gồm nhãn dự đoán, độ tin cậy (\%), và phân phối xác suất toàn bộ 4 lớp.
+\end{enumerate}
+
+\begin{table}[H]{Thông số kỹ thuật của Classification Agent}
+\centering
+\begin{tabular}{lp{9cm}}
+\toprule
+\textbf{Thông số} & \textbf{Giá trị} \\
+\midrule
+Mô hình cơ sở & ViT-Base/16 (tiền huấn luyện ImageNet-21k) \\
+Tập dữ liệu fine-tune & prithivMLmods/Rice-Leaf-Disease \\
+Kích thước đầu vào & $224 \times 224 \times 3$ \\
+Số lớp đầu ra & 4 (Blast, Blight, Brown Spot, Tungro) \\
+Framework & PyTorch + HuggingFace Transformers \\
+Thiết bị & CPU (tự động phát hiện GPU nếu có) \\
+Kích thước mô hình & $\sim$330MB \\
+Thời gian suy luận & $\sim$0.8s (CPU) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Morphology Agent}
+\textbf{Chức năng:} Phân tích hình thái học của lá lúa bằng mô hình đa phương thức Gemini Vision.
+
+\textbf{Chiến lược Prompt Engineering:} Agent sử dụng một lời nhắc có cấu trúc yêu cầu Gemini mô tả ba khía cạnh: (1) màu sắc vết bệnh, (2) hình dạng và kích thước, (3) phân bố trên lá, đồng thời đối chiếu với nhãn bệnh đã được Classification Agent xác định.
+
+\textbf{Xử lý ảnh cho Gemini:} Ảnh PIL được mã hóa Base64 và nhúng trực tiếp vào nội dung HumanMessage theo chuẩn data URI:
+\begin{equation}
+    \text{Image URI} = \texttt{data:image/png;base64,} + \text{Base64}(\text{PNG bytes})
+\end{equation}
+
+\textbf{Tại sao không chỉ dùng ViT?} ViT cho nhãn phân loại nhưng không giải thích. Morphology Agent cung cấp tính giải thích được (explainability) --- nông dân hiểu tại sao hệ thống kết luận như vậy và có thể kiểm chứng bằng mắt thường.
+
+\subsection{Retrieval Agent}
+\textbf{Chức năng:} Truy xuất thông tin bệnh học chính xác từ ChromaDB.
+
+\textbf{Cơ sở tri thức:} Bốn tài liệu tương ứng bốn loại bệnh, mỗi tài liệu chứa: tác nhân gây bệnh, đặc điểm nhận dạng, điều kiện phát triển, biện pháp phòng ngừa và điều trị.
+
+\textbf{Mô hình Embedding:} \texttt{models/gemini-embedding-001} --- tạo ra vector nhúng 768 chiều cho mỗi đoạn tài liệu.
+
+\textbf{Tìm kiếm:} \texttt{vectorstore.similarity\_search(disease\_query, k=1)} tìm tài liệu gần nhất theo cosine similarity.
+
+\begin{table}[H]{Cấu trúc tài liệu trong ChromaDB Knowledge Base}
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Trường} & \textbf{Kiểu} & \textbf{Mô tả} \\
+\midrule
+\texttt{page\_content} & \texttt{str} & Nội dung tài liệu bệnh học đầy đủ \\
+\texttt{metadata.disease} & \texttt{str} & Nhãn bệnh tiếng Anh (Blast, Blight, ...) \\
+\texttt{metadata.name\_vn} & \texttt{str} & Tên bệnh tiếng Việt \\
+\texttt{embedding} & \texttt{List[float]} & Vector 768 chiều từ gemini-embedding-001 \\
+\texttt{id} & \texttt{str} & UUID tự động sinh \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Coordinator Agent}
+Coordinator Agent đóng hai vai trò: (1) điều phối tuần tự bốn Agent còn lại theo đúng thứ tự xử lý, và (2) gọi Gemini để tổng hợp tất cả kết quả thành báo cáo tiếng Việt hoàn chỉnh.
+
+Một vấn đề thực tế gặp phải khi lập trình là thời gian khởi động chậm: mỗi lần tải mô hình ViT (~330MB) mất khoảng 8--10 giây, và khởi tạo ChromaDB cũng thêm vài giây. Nếu để hàm này chạy mỗi khi có request thì trải nghiệm người dùng sẽ rất tệ. Giải pháp là dùng lazy singleton qua hàm \texttt{get\_coordinator()} --- mô hình chỉ tải một lần khi server khởi động, các request sau dùng lại instance đã có trong bộ nhớ.
+
+\textbf{Cấu trúc Prompt tổng hợp báo cáo:}
+\begin{lstlisting}[language=Python, caption={Prompt tổng hợp báo cáo trong Coordinator Agent}, label={lst:coordinator_prompt}]
+prompt = f"""Ban la mot he thong AI chuyen gia nong nghiep.
+Hay tong hop BAO CAO CHAN DOAN BENH LUA hoan chinh bang tieng Viet.
+
+DU LIEU DAU VAO:
+- Ket qua ViT: {disease} (Do tin cay: {confidence}%)
+- Phan tich hinh thai (Gemini Vision): {morphology}
+- Thong tin benh hoc (RAG): {knowledge}
+
+YEU CAU BAO CAO:
+## KET LUAN CHAN DOAN
+## DAC DIEM NHAN DANG QUAN SAT DUOC
+## NGUYEN NHAN & DIEU KIEN GAY BENH
+## KHUYEN NGHI PHONG TRI SINH HOC
+"""
+\end{lstlisting}
+\newpage
+\section{Thiết kế API RESTful}
+
+\subsection{Tổng quan FastAPI}
+FastAPI là framework Python hiện đại dựa trên Starlette (ASGI) và Pydantic, cung cấp hiệu năng cao (tương đương NodeJS và Go), tự động tạo tài liệu OpenAPI/Swagger và kiểm tra kiểu dữ liệu tại runtime.
+
+\begin{table}[H]{Đặc tả các endpoint của Rice Disease Detection API}
+\centering
+\begin{tabularx}{\textwidth}{p{1.5cm} p{2.8cm} X p{3.5cm}}
+\toprule
+\textbf{Method} & \textbf{Endpoint} & \textbf{Mô tả} & \textbf{Response} \\
+\midrule
+GET  & \texttt{/}         & Kiểm tra trạng thái API & \texttt{\{message: ...\}} \\[4pt]
+POST & \texttt{/diagnose} & Tải lên ảnh và nhận báo cáo chẩn đoán đầy đủ & \texttt{DiagnosisResponse} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Schema dữ liệu}
+\begin{lstlisting}[language=Python, caption={Pydantic response model cho endpoint /diagnose}, label={lst:pydantic}]
+class DiagnosisResponse(BaseModel):
+    disease_label: str      # Ten benh (Blast, Blight, ...)
+    confidence: float       # Do tin cay (0-100%)
+    morphology_analysis: str# Phan tich hinh thai tu Gemini
+    knowledge_info: str     # Tri thuc tu ChromaDB RAG
+    final_report: str       # Bao cao tong hop tieng Viet
+\end{lstlisting}
+
+\subsection{CORS và Bảo mật}
+CORS (Cross-Origin Resource Sharing) được cấu hình \texttt{allow\_origins=["*"]} trong môi trường phát triển, cho phép bất kỳ nguồn gốc nào gọi API. Trong môi trường production, cần giới hạn \texttt{allow\_origins} về domain cụ thể để đảm bảo bảo mật.
