@@ -10,7 +10,7 @@ from PIL import Image
 
 # ── Cấu hình trang ────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Chẩn Đoán Bệnh Cây Lúa",
+    page_title="Rice Disease Detection | Chẩn Đoán Bệnh Cây Lúa",
     page_icon="🌾",
     layout="centered",
     initial_sidebar_state="collapsed",
@@ -51,7 +51,8 @@ html, body, [class*="css"] {
 """, unsafe_allow_html=True)
 
 # ── Tiêu đề ───────────────────────────────────────────────────────────────────
-st.title("🌾 Chẩn Đoán Bệnh Cây Lúa")
+st.title("🌾 Rice Disease Detection")
+st.markdown("**Chẩn Đoán Bệnh Cây Lúa** — Hệ thống AI Đa Tác Nhân")
 st.caption("Tải lên ảnh lá lúa — hệ thống AI đa tác nhân sẽ nhận diện bệnh và đưa ra báo cáo điều trị.")
 st.divider()
 
@@ -101,10 +102,6 @@ conf  = results["classification"]["confidence"]
 st.markdown(f'<div class="disease-badge">{label}</div>', unsafe_allow_html=True)
 st.write(f"**Độ tin cậy:** {conf:.1f}%")
 st.progress(min(int(conf), 100))
-
-if "preprocessed_image" in results and results["preprocessed_image"]:
-    with st.expander("🖼️ Ảnh đã tiền xử lý (đã tách nền)"):
-        st.image(results["preprocessed_image"], use_container_width=True)
 
 st.divider()
 

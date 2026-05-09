@@ -41,4 +41,8 @@ texlive/
 Thumbbs.db
 .vscode/
 .idea/
+# ── Documents / Thesis ──────────────────────────────
+thesis.tex
+thesis.pdf
+Lý thuyết*.pdf
 quy *.pdf
