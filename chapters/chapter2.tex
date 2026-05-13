@@ -111,7 +111,7 @@ Thời gian suy luận & $\sim$0.8s (CPU) \\
 \subsection{Retrieval Agent}
 \textbf{Chức năng:} Truy xuất thông tin bệnh học chính xác từ ChromaDB để cung cấp ngữ cảnh thực tế cho bước tổng hợp báo cáo, giảm thiểu hallucination của LLM.
 
-\textbf{Mô hình Embedding:} \texttt{models/text-embedding-004} (Google Generative AI) --- tạo ra vector nhúng cho mỗi tài liệu bệnh học và cho câu truy vấn khi chẩn đoán.
+\textbf{Mô hình Embedding:} \texttt{models/gemini-embedding-2} (Google Generative AI) --- tạo ra vector nhúng cho mỗi tài liệu bệnh học và cho câu truy vấn khi chẩn đoán.
 
 \textbf{Tìm kiếm:} \texttt{vectorstore.similarity\_search(disease\_query, k=1)} --- truy xuất tài liệu liên quan nhất theo cosine similarity. Vì mỗi tài liệu ứng với một bệnh và truy vấn là tên bệnh đã phân loại, $k=1$ luôn trả về đúng tài liệu tương ứng.
 
@@ -150,7 +150,7 @@ Vàng lùn (Tungro) & RTBV (Badnavirus) + RTSV (Waikavirus) & IRRI Rice Knowledg
 \texttt{metadata.name\_vn} & \texttt{str} & Tên bệnh tiếng Việt \\
 \texttt{metadata.pathogen\_latin} & \texttt{str} & Tên khoa học tác nhân gây bệnh \\
 \texttt{metadata.sources} & \texttt{str} & Danh sách nguồn tài liệu tham chiếu \\
-\texttt{embedding} & \texttt{List[float]} & Vector từ text-embedding-004 \\
+\texttt{embedding} & \texttt{List[float]} & Vector từ gemini-embedding-2 \\
 \bottomrule
 \end{tabular}
 \end{table}

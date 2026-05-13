@@ -7,7 +7,7 @@ class RetrievalAgent:
     def __init__(self):
         print("Initializing Retrieval Agent and loading Vector DB...")
         self.embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/gemini-embedding-001", 
+            model="models/gemini-embedding-2", 
             google_api_key=settings.GEMINI_API_KEY
         )
         

@@ -20,10 +20,10 @@ def setup_knowledge_base():
     """
 
     # 1. Khởi tạo Embeddings
-    print("Initializing Google Generative AI Embeddings (text-embedding-004)...")
+    print("Initializing Google Generative AI Embeddings (gemini-embedding-2)...")
     try:
         embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/text-embedding-004",
+            model="models/gemini-embedding-2",
             google_api_key=settings.GEMINI_API_KEY
         )
     except Exception as e:
