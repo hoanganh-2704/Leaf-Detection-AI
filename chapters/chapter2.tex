@@ -31,7 +31,7 @@ Luồng dữ liệu đầy đủ diễn ra như sau:
 
 \section{Thiết kế chi tiết từng Agent}
 \subsection{Preprocessing Agent}
-\textbf{Chức năng:} Chuẩn hóa ảnh đầu vào, tách nền và tăng cường độ tương phản.
+\textbf{Chức năng:} Chuẩn hóa ảnh đầu vào về định dạng phù hợp với mô hình phân loại.
 
 \textbf{Input:} Đối tượng \texttt{PIL.Image} bất kỳ kích thước, bất kỳ định dạng.
 
@@ -39,46 +39,43 @@ Luồng dữ liệu đầy đủ diễn ra như sau:
 
 \textbf{Thuật toán xử lý:}
 \begin{enumerate}[leftmargin=1.5cm]
-    \item \textbf{Tách nền:} Thư viện \texttt{rembg} sử dụng mô hình U-Net thu nhỏ (IS-Net, kích thước $\sim$170MB) được huấn luyện trên tập dữ liệu lớn để phân vùng đối tượng chính. Đầu ra là ảnh RGBA với kênh alpha là mask tách nền. Vùng nền alpha $< 127$ được thay bằng nền trắng $(255, 255, 255)$.
-    \item \textbf{Tăng cường tương phản:} Dùng \texttt{PIL.ImageEnhance.Contrast} với hệ số $1.2$ ($+20\%$) giúp làm nổi bật các vết bệnh.
+    \item \textbf{Chuẩn hóa màu sắc:} Đảm bảo ảnh đầu vào ở định dạng RGB, chuyển đổi nếu cần.
+    \item \textbf{Tăng cường tương phản:} Dùng \texttt{PIL.ImageEnhance.Contrast} với hệ số $1.1$ ($+10\%$) để làm nổi bật các vết bệnh mà không làm thay đổi đáng kể phân phối ảnh.
     \item \textbf{Resampling:} Resize về $224 \times 224$ bằng thuật toán Lanczos cho chất lượng tốt nhất khi thu nhỏ ảnh.
 \end{enumerate}
-\newpage
-\begin{lstlisting}[language=Python, caption={Preprocessing Agent --- xử lý ảnh đầu vào}, label={lst:preprocessing}]
+
+\textbf{Lưu ý thiết kế:} Bước tách nền (background removal) đã được loại bỏ khỏi thiết kế cuối cùng sau khi phân tích phân phối dữ liệu huấn luyện của mô hình \texttt{prithivMLmods/Rice-Leaf-Disease}. Mô hình này được fine-tune trên ảnh lá lúa tự nhiên có nền đồng ruộng; việc thay nền bằng màu trắng tạo ra phân phối đầu vào khác hoàn toàn so với dữ liệu huấn luyện, dẫn đến sự suy giảm nghiêm trọng về độ chính xác phân loại.
+
+\begin{lstlisting}[language=Python, caption={Preprocessing Agent --- chuẩn hóa ảnh đầu vào}, label={lst:preprocessing}]
 class PreprocessingAgent:
     def process(self, image: Image.Image) -> Image.Image:
-        # 1. Tach nen bang rembg (U-Net)
-        image_no_bg = remove(image)
+        # 1. Dam bao anh la RGB
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
 
-        # 2. Chuyen RGBA -> RGB voi nen trang
-        if image_no_bg.mode in ('RGBA', 'LA'):
-            background = Image.new('RGB', image_no_bg.size, (255, 255, 255))
-            background.paste(image_no_bg, mask=image_no_bg.split()[3])
-            image_no_bg = background
+        # 2. Tang nhe tuong phan 10% de lam noi vet benh
+        enhancer = ImageEnhance.Contrast(image)
+        image_enhanced = enhancer.enhance(1.1)
 
-        # 3. Tang cuong tuong phan +20%
-        enhancer = ImageEnhance.Contrast(image_no_bg)
-        image_enhanced = enhancer.enhance(1.2)
-
-        # 4. Resize 224x224 Lanczos
+        # 3. Resize 224x224 Lanczos (phu hop SigLIP2-base-patch16-224)
         return image_enhanced.resize((224, 224), Image.Resampling.LANCZOS)
 \end{lstlisting}
 
 \subsection{Classification Agent}
 \textbf{Chức năng:} Phân loại bệnh lúa từ ảnh đã tiền xử lý.
 
-\textbf{Mô hình:} \texttt{prithivMLmods/Rice-Leaf-Disease} trên Hugging Face --- ViT-Base được fine-tune trên tập dữ liệu lá lúa với 4 nhãn: Blast, Blight, Brown Spot, Tungro.
+\textbf{Mô hình:} \texttt{prithivMLmods/Rice-Leaf-Disease} trên Hugging Face --- fine-tune từ \texttt{google/siglip2-base-patch16-224} (kiến trúc SigLIP2), với 5 nhãn phân loại: Bacterialblight, Blast, Brownspot, Healthy, Tungro. Mô hình đạt độ chính xác 94.77\% trên tập kiểm thử.
 
 \textbf{Quy trình suy luận:}
 \begin{enumerate}[leftmargin=1.5cm]
-    \item \textbf{Tiền xử lý ảnh:} \texttt{AutoImageProcessor} chuẩn hóa pixel về $[-1, 1]$, chuyển sang tensor PyTorch.
-    \item \textbf{Suy luận:} Đưa tensor qua mô hình ViT trong chế độ \texttt{torch.no\_grad()} để tiết kiệm bộ nhớ.
-    \item \textbf{Tính xác suất:} Áp dụng Softmax lên vector logits 4 chiều:
+    \item \textbf{Tiền xử lý ảnh:} \texttt{AutoProcessor} chuẩn hóa pixel theo chuẩn SigLIP2, chuyển sang tensor PyTorch.
+    \item \textbf{Suy luận:} Đưa tensor qua \texttt{SiglipForImageClassification} trong chế độ \texttt{torch.no\_grad()} để tiết kiệm bộ nhớ.
+    \item \textbf{Tính xác suất:} Áp dụng Softmax lên vector logits 5 chiều:
     \begin{equation}
-        P(y_i | \mathbf{x}) = \frac{e^{z_i}}{\displaystyle\sum_{j=1}^{4} e^{z_j}}
+        P(y_i | \mathbf{x}) = \frac{e^{z_i}}{\displaystyle\sum_{j=1}^{5} e^{z_j}}
         \label{eq:softmax}
     \end{equation}
-    \item \textbf{Đầu ra:} Từ điển gồm nhãn dự đoán, độ tin cậy (\%), và phân phối xác suất toàn bộ 4 lớp.
+    \item \textbf{Đầu ra:} Từ điển gồm nhãn dự đoán, độ tin cậy (\%), và phân phối xác suất toàn bộ 5 lớp.
 \end{enumerate}
 
 \begin{table}[H]{Thông số kỹ thuật của Classification Agent}
@@ -87,13 +84,13 @@ class PreprocessingAgent:
 \toprule
 \textbf{Thông số} & \textbf{Giá trị} \\
 \midrule
-Mô hình cơ sở & ViT-Base/16 (tiền huấn luyện ImageNet-21k) \\
-Tập dữ liệu fine-tune & prithivMLmods/Rice-Leaf-Disease \\
+Mô hình cơ sở & SigLIP2-Base/16 (fine-tune từ google/siglip2-base-patch16-224) \\
+Tập dữ liệu fine-tune & sharmin3/Rice-Leaf-Disease (7421 mẫu kiểm thử) \\
 Kích thước đầu vào & $224 \times 224 \times 3$ \\
-Số lớp đầu ra & 4 (Blast, Blight, Brown Spot, Tungro) \\
+Số lớp đầu ra & 5 (Bacterialblight, Blast, Brownspot, Healthy, Tungro) \\
 Framework & PyTorch + HuggingFace Transformers \\
 Thiết bị & CPU (tự động phát hiện GPU nếu có) \\
-Kích thước mô hình & $\sim$330MB \\
+Độ chính xác & 94.77\% trên tập kiểm thử \\
 Thời gian suy luận & $\sim$0.8s (CPU) \\
 \bottomrule
 \end{tabular}
@@ -112,15 +109,29 @@ Thời gian suy luận & $\sim$0.8s (CPU) \\
 \textbf{Tại sao không chỉ dùng ViT?} ViT cho nhãn phân loại nhưng không giải thích. Morphology Agent cung cấp tính giải thích được (explainability) --- nông dân hiểu tại sao hệ thống kết luận như vậy và có thể kiểm chứng bằng mắt thường.
 
 \subsection{Retrieval Agent}
-\textbf{Chức năng:} Truy xuất thông tin bệnh học chính xác từ ChromaDB.
+\textbf{Chức năng:} Truy xuất thông tin bệnh học chính xác từ ChromaDB để cung cấp ngữ cảnh cho bước tổng hợp báo cáo.
 
-\textbf{Cơ sở tri thức:} Bốn tài liệu tương ứng bốn loại bệnh, mỗi tài liệu chứa: tác nhân gây bệnh, đặc điểm nhận dạng, điều kiện phát triển, biện pháp phòng ngừa và điều trị.
+\textbf{Mô hình Embedding:} \texttt{models/text-embedding-004} (Google Generative AI) --- tạo ra vector nhúng cho mỗi đoạn tài liệu và cho câu truy vấn khi chẩn đoán.
 
-\textbf{Mô hình Embedding:} \texttt{models/gemini-embedding-001} --- tạo ra vector nhúng 768 chiều cho mỗi đoạn tài liệu.
+\textbf{Tìm kiếm:} \texttt{vectorstore.similarity\_search(disease\_query, k=1)} --- truy xuất tài liệu liên quan nhất theo cosine similarity. Vì mỗi tài liệu ứng với một bệnh và truy vấn là tên bệnh đã phân loại, $k=1$ luôn trả về đúng tài liệu tương ứng.
 
-\textbf{Tìm kiếm:} \texttt{vectorstore.similarity\_search(disease\_query, k=1)} tìm tài liệu gần nhất theo cosine similarity.
+\textbf{Nội dung cơ sở tri thức (Knowledge Base):} Cơ sở tri thức gồm 4 tài liệu được soạn thủ công dựa trên tài liệu khuyến nông của Bộ Nông nghiệp và Phát triển Nông thôn Việt Nam. Mỗi tài liệu cấu trúc theo bốn trường thông tin nhất quán:
 
-\begin{table}[H]{Cấu trúc tài liệu trong ChromaDB Knowledge Base}
+\begin{table}[H]{Nội dung chi tiết của 4 tài liệu trong ChromaDB Knowledge Base}
+\centering
+\begin{tabularx}{\textwidth}{p{2.2cm} p{2cm} X}
+\toprule
+\textbf{Tên bệnh} & \textbf{Tác nhân} & \textbf{Nội dung tri thức chính} \\
+\midrule
+Đạo ôn (Blast) & Nấm \textit{Pyricularia oryzae} & Vết bệnh hình thoi, tâm xám nhạt, viền nâu đậm. Phát triển mạnh khi độ ẩm cao, nhiệt độ 20--30\degree{}C. Phòng: giống chống chịu, bón phân cân đối, thuốc sinh học. \\[4pt]
+Bạc lá (Blight) & Vi khuẩn \textit{Xanthomonas oryzae} & Dải bạc/vàng nhạt chạy dọc mép lá. Giọt dịch vi khuẩn đục buổi sáng. Phát triển khi nhiệt độ cao (28--30\degree{}C), mưa to. Phòng: không bón thừa đạm, bổ sung kali, rút nước phơi ruộng. \\[4pt]
+Đốm nâu (Brown Spot) & Nấm \textit{Bipolaris oryzae} & Vết bệnh nâu hình tròn/bầu dục, tâm xám ở giai đoạn muộn. Liên quan đến thiếu Kali, Silic, đất phèn. Phòng: cải tạo đất, bón phân cân đối, giữ nước ổn định. \\[4pt]
+Vàng lùn (Tungro) & Virus RTSV + RTBV (do rầy lây truyền) & Cây lùn, lá vàng từ lá già lan lên đỉnh. Phụ thuộc mật độ rầy xanh đuôi đen. Phòng: diệt rầy, bảo vệ thiên địch, gieo sạ né rầy, giống kháng rầy. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[H]{Cấu trúc schema tài liệu trong ChromaDB}
 \centering
 \begin{tabular}{lll}
 \toprule
@@ -129,7 +140,7 @@ Thời gian suy luận & $\sim$0.8s (CPU) \\
 \texttt{page\_content} & \texttt{str} & Nội dung tài liệu bệnh học đầy đủ \\
 \texttt{metadata.disease} & \texttt{str} & Nhãn bệnh tiếng Anh (Blast, Blight, ...) \\
 \texttt{metadata.name\_vn} & \texttt{str} & Tên bệnh tiếng Việt \\
-\texttt{embedding} & \texttt{List[float]} & Vector 768 chiều từ gemini-embedding-001 \\
+\texttt{embedding} & \texttt{List[float]} & Vector từ text-embedding-004 \\
 \texttt{id} & \texttt{str} & UUID tự động sinh \\
 \bottomrule
 \end{tabular}
