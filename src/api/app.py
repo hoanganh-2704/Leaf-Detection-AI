@@ -11,7 +11,7 @@ from src.core.workflow import run_diagnosis
 
 app = FastAPI(
     title="Rice Disease Detection API",
-    description="Hệ thống AI đa tác nhân chẩn đoán bệnh lúa sử dụng Vision Transformer + Gemini.",
+    description="Hệ thống AI đa tác nhân chẩn đoán bệnh lúa sử dụng SigLIP image classification + Gemini.",
     version="1.0.0"
 )
 
@@ -26,6 +26,7 @@ app.add_middleware(
 
 class DiagnosisResponse(BaseModel):
     disease_label: str
+    disease_label_vi: str
     confidence: float
     morphology_analysis: str
     knowledge_info: str
@@ -54,9 +55,12 @@ async def diagnose(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Agent pipeline error: {str(e)}")
     
+    diagnosis = result.get("diagnosis", result["classification"])
+
     return DiagnosisResponse(
-        disease_label=result["classification"]["disease_label"],
-        confidence=result["classification"]["confidence"],
+        disease_label=diagnosis["disease_label"],
+        disease_label_vi=diagnosis.get("disease_label_vi", diagnosis["disease_label"]),
+        confidence=diagnosis["confidence"],
         morphology_analysis=result["morphology"],
         knowledge_info=result["knowledge"],
         final_report=result["final_report"]

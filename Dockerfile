@@ -2,7 +2,7 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies required by rembg, OpenCV and PyTorch
+# Install system dependencies required by image processing and PyTorch
 RUN apt-get update && apt-get install -y \
     build-essential \
     libgl1 \

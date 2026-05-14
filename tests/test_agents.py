@@ -28,10 +28,7 @@ def test_preprocessing_output_size(sample_image):
     """Preprocessed image must always be 224x224 RGB."""
     from src.agents.preprocessing import PreprocessingAgent
     agent = PreprocessingAgent()
-    
-    # Patch rembg.remove to skip background removal during tests
-    with patch("src.agents.preprocessing.remove", return_value=sample_image):
-        result = agent.process(sample_image)
+    result = agent.process(sample_image)
     
     assert result.size == (224, 224), f"Expected (224, 224) but got {result.size}"
     assert result.mode == "RGB"
@@ -39,8 +36,7 @@ def test_preprocessing_output_size(sample_image):
 def test_preprocessing_output_is_image(sample_image):
     from src.agents.preprocessing import PreprocessingAgent
     agent = PreprocessingAgent()
-    with patch("src.agents.preprocessing.remove", return_value=sample_image):
-        result = agent.process(sample_image)
+    result = agent.process(sample_image)
     assert isinstance(result, Image.Image)
 
 # ── Phase 2: Classification Agent ───────────────────────────────────────────────
@@ -50,14 +46,20 @@ def test_classification_returns_correct_keys(sample_image):
     
     # Mock the huggingface model loading and inference
     with patch("src.agents.classification.AutoImageProcessor.from_pretrained") as mock_proc, \
-         patch("src.agents.classification.AutoModelForImageClassification.from_pretrained") as mock_model:
+         patch("src.agents.classification.SiglipForImageClassification.from_pretrained") as mock_model:
         
         mock_model_inst = MagicMock()
-        mock_model_inst.config.id2label = {0: "Blast", 1: "Blight", 2: "Brown Spot", 3: "Tungro"}
+        mock_model_inst.config.id2label = {
+            0: "Bacterialblight",
+            1: "Blast",
+            2: "Brownspot",
+            3: "Healthy",
+            4: "Tungro",
+        }
         
         import torch
         # Simulate logits
-        logits = torch.tensor([[2.0, 0.5, 0.1, 0.1]])
+        logits = torch.tensor([[2.0, 0.5, 0.1, 0.1, 0.0]])
         mock_outputs = MagicMock()
         mock_outputs.logits = logits
         mock_model_inst.return_value = mock_outputs
@@ -67,9 +69,12 @@ def test_classification_returns_correct_keys(sample_image):
         agent = ClassificationAgent()
         result = agent.classify(sample_image)
     
+    assert result["disease_key"] == "Bacterialblight"
+    assert result["disease_label"] == "Bacterial Blight"
     assert "disease_label" in result
     assert "confidence" in result
     assert "all_probabilities" in result
+    assert "raw_probabilities" in result
     assert isinstance(result["confidence"], float)
 
 # ── Phase 2: Retrieval Agent ─────────────────────────────────────────────────────
@@ -83,12 +88,21 @@ def test_retrieval_returns_string_when_no_db():
     assert isinstance(result, str)
     assert len(result) > 0
 
+def test_retrieval_handles_healthy_without_db():
+    """Healthy classification should not require ChromaDB or embeddings."""
+    with patch("src.agents.retrieval.os.path.exists", return_value=False), \
+         patch("src.agents.retrieval.GoogleGenerativeAIEmbeddings") as mock_embeddings:
+        from src.agents.retrieval import RetrievalAgent
+        agent = RetrievalAgent()
+        result = agent.retrieve_info("Healthy")
+    assert "Không phát hiện bệnh" in result
+    mock_embeddings.assert_not_called()
+
 # ── Phase 3: End-to-End Workflow ─────────────────────────────────────────────────
 def test_full_pipeline_returns_expected_keys(sample_image):
     """Integration test: the pipeline dict must contain all expected keys."""
-    with patch("src.agents.preprocessing.remove", return_value=sample_image), \
-         patch("src.agents.classification.AutoImageProcessor.from_pretrained") as p, \
-         patch("src.agents.classification.AutoModelForImageClassification.from_pretrained") as m, \
+    with patch("src.agents.classification.AutoImageProcessor.from_pretrained") as p, \
+         patch("src.agents.classification.SiglipForImageClassification.from_pretrained") as m, \
          patch("src.agents.morphology.ChatGoogleGenerativeAI") as mock_morph_llm, \
          patch("src.agents.retrieval.os.path.exists", return_value=False), \
          patch("src.agents.retrieval.GoogleGenerativeAIEmbeddings"), \
@@ -110,5 +124,26 @@ def test_full_pipeline_returns_expected_keys(sample_image):
         from src.core.workflow import run_diagnosis
         result = run_diagnosis(sample_image)
     
-    for key in ["preprocessed_image", "classification", "morphology", "knowledge", "final_report"]:
+    for key in ["preprocessed_image", "classification", "visual_verification", "diagnosis", "morphology", "knowledge", "final_report"]:
         assert key in result, f"Missing key: {key}"
+
+def test_coordinator_visual_override():
+    """A high-confidence Gemini disagreement should replace the raw model label."""
+    from src.agents.coordinator import CoordinatorAgent
+
+    coordinator = CoordinatorAgent.__new__(CoordinatorAgent)
+    classification = {
+        "disease_key": "Bacterialblight",
+        "disease_label": "Bacterial Blight",
+        "confidence": 99.0,
+    }
+    visual = {
+        "suggested_key": "Blast",
+        "suggested_label": "Rice Blast",
+        "confidence": 82.0,
+    }
+
+    diagnosis = coordinator._select_diagnosis(classification, visual)
+
+    assert diagnosis["disease_key"] == "Blast"
+    assert diagnosis["source"] == "visual_verification_override"

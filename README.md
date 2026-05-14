@@ -1,6 +1,6 @@
 # 🌿 Rice Disease Detection AI
 
-A multi-agent AI system for diagnosing rice leaf diseases using **Vision Transformer (ViT)**, **Google Gemini**, and **ChromaDB RAG**.
+A multi-agent AI system for diagnosing rice leaf diseases using **SigLIP image classification**, **Google Gemini**, and **ChromaDB RAG**.
 
 ---
 
@@ -11,12 +11,12 @@ Five specialised agents collaborate to produce a complete diagnosis:
 | Agent | Role |
 |---|---|
 | **Coordinator** | Orchestrates the pipeline and synthesises the final report |
-| **Preprocessing** | Removes background (via `rembg`) and normalises the image |
-| **Classification** | Runs ViT (`prithivMLmods/Rice-Leaf-Disease`) → disease label + confidence |
-| **Morphology** | Describes visual symptoms using **Gemini Vision** multimodal analysis |
+| **Preprocessing** | Converts uploads to RGB and prepares them for model inference |
+| **Classification** | Runs SigLIP image classification (`prithivMLmods/Rice-Leaf-Disease`) → label + confidence |
+| **Morphology** | Uses **Gemini Vision** for independent visual verification and symptom analysis |
 | **Retrieval** | Queries **ChromaDB** (RAG) for evidence-based treatment information |
 
-Supported diseases: **Blast (Đạo ôn)** · **Bacterial Blight (Bạc lá)** · **Brown Spot (Đốm nâu)** · **Tungro (Vàng lùn)**
+Supported classes: **Blast (Đạo ôn)** · **Bacterial Blight (Bạc lá)** · **Brown Spot (Đốm nâu)** · **Tungro (Vàng lùn)** · **Healthy (Lá khỏe)**
 
 ---
 
@@ -113,7 +113,7 @@ docker compose up --build -d
 
 ### Step 2 — Wait for startup
 
-The **backend** initialises ChromaDB and loads the ViT model on the first run (~60 s).  
+The **backend** initialises ChromaDB and loads the image-classification model on the first run (~60 s).
 The **frontend** waits for the backend healthcheck to pass before starting.
 
 Follow logs in real time:
@@ -296,7 +296,7 @@ pytest tests/ -v
 | Variable | Required | Description |
 |---|---|---|
 | `GEMINI_API_KEY` | ✅ Yes | Google Gemini API key — get one free at [aistudio.google.com](https://aistudio.google.com/app/apikey) |
-| `HF_TOKEN` | ⬜ Optional | HuggingFace token (only if the ViT model requires authentication) |
+| `HF_TOKEN` | ⬜ Optional | HuggingFace token (only if the image-classification model requires authentication) |
 
 ---
 
@@ -310,4 +310,4 @@ pytest tests/ -v
 | Docker: `port is already allocated` | Another service is using port 8000 or 8506. Stop it, or change the port mapping in `docker-compose.yml` |
 | Docker: frontend starts before backend is ready | This is handled by the healthcheck. If it persists, increase `start_period` in `docker-compose.yml` |
 | ChromaDB not found error | Run `python -m src.core.knowledge_setup` to (re)create the vector DB |
-| `rembg` install fails on Windows | Install [Visual C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) first |
+| Tests fail with `No module named pytest` | Re-run `pip install -r requirements.txt` inside the project virtual environment |

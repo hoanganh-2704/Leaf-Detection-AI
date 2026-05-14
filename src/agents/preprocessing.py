@@ -9,7 +9,7 @@ class PreprocessingAgent:
         """
         Thực hiện tiền xử lý ảnh:
         1. Chuyển về RGB (đảm bảo định dạng chuẩn)
-        2. Điều chỉnh kích thước về 224x224 (phù hợp với ViT/SigLIP2)
+        2. Điều chỉnh kích thước về 224x224 (phù hợp với SigLIP2)
         3. Tăng nhẹ độ tương phản để làm nổi rõ vết bệnh
 
         Lưu ý: KHÔNG tách nền. Mô hình SigLIP2 được huấn luyện trên
@@ -33,4 +33,3 @@ class PreprocessingAgent:
     def process_from_bytes(self, image_bytes: bytes) -> Image.Image:
         image = Image.open(io.BytesIO(image_bytes))
         return self.process(image)
-

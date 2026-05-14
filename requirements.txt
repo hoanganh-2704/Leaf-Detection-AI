@@ -11,7 +11,7 @@ python-dotenv
 pydantic-settings
 streamlit
 pillow
-rembg
 langchain-community
 uvicorn
 python-multipart
+pytest

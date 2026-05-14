@@ -76,13 +76,13 @@ if not st.button("🔍 Bắt đầu chẩn đoán", type="primary", use_containe
 
 # ── Tiến trình pipeline ───────────────────────────────────────────────────────
 st.divider()
-st.subheader("⚙️ Tiến trình các Agent")
-log_container = st.container()
+progress_placeholder = st.empty()
 logs = []
 
 def update_progress(msg: str):
     logs.append(msg)
-    with log_container:
+    with progress_placeholder.container():
+        st.subheader("⚙️ Tiến trình các Agent")
         for m in logs:
             st.markdown(f'<div class="step-card">🤖 {m}</div>', unsafe_allow_html=True)
 
@@ -90,14 +90,23 @@ with st.spinner("Đang phân tích, vui lòng chờ…"):
     from src.core.workflow import run_diagnosis
     results = run_diagnosis(img, progress_callback=update_progress)
 
+progress_placeholder.empty()
 st.success("✅ Chẩn đoán hoàn tất!")
+
+with st.expander("⚙️ Tiến trình các Agent", expanded=False):
+    for m in logs:
+        st.markdown(f'<div class="step-card">🤖 {m}</div>', unsafe_allow_html=True)
 
 # ── Kết quả ───────────────────────────────────────────────────────────────────
 st.divider()
 st.subheader("📋 Kết quả phân loại")
 
-label = results["classification"]["disease_label"]
-conf  = results["classification"]["confidence"]
+diagnosis = results.get("diagnosis", results["classification"])
+
+label_en = diagnosis["disease_label"]
+label_vi = diagnosis.get("disease_label_vi", "")
+label = f"{label_en} / {label_vi}" if label_vi and label_vi != label_en else label_en
+conf = diagnosis["confidence"]
 
 st.markdown(f'<div class="disease-badge">{label}</div>', unsafe_allow_html=True)
 st.write(f"**Độ tin cậy:** {conf:.1f}%")
@@ -123,7 +132,7 @@ with st.expander("📚 Tri thức bệnh học (ChromaDB RAG)"):
 st.download_button(
     "⬇️ Tải báo cáo (.txt)",
     data=results["final_report"],
-    file_name=f"BaoCao_{label.replace(' ', '_')}.txt",
+    file_name=f"BaoCao_{label_en.replace(' ', '_')}.txt",
     mime="text/plain",
     use_container_width=True,
 )
