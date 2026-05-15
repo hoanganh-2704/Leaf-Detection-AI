@@ -80,8 +80,7 @@ def test_classification_returns_correct_keys(sample_image):
 # ── Phase 2: Retrieval Agent ─────────────────────────────────────────────────────
 def test_retrieval_returns_string_when_no_db():
     """If Vector DB path does not exist, retrieval should return a warning string."""
-    with patch("src.agents.retrieval.os.path.exists", return_value=False), \
-         patch("src.agents.retrieval.GoogleGenerativeAIEmbeddings"):
+    with patch("src.agents.retrieval.os.path.exists", return_value=False):
         from src.agents.retrieval import RetrievalAgent
         agent = RetrievalAgent()
         result = agent.retrieve_info("Blast")
@@ -91,7 +90,7 @@ def test_retrieval_returns_string_when_no_db():
 def test_retrieval_handles_healthy_without_db():
     """Healthy classification should not require ChromaDB or embeddings."""
     with patch("src.agents.retrieval.os.path.exists", return_value=False), \
-         patch("src.agents.retrieval.GoogleGenerativeAIEmbeddings") as mock_embeddings:
+         patch("src.agents.retrieval.LocalHashEmbeddings") as mock_embeddings:
         from src.agents.retrieval import RetrievalAgent
         agent = RetrievalAgent()
         result = agent.retrieve_info("Healthy")
@@ -105,7 +104,6 @@ def test_full_pipeline_returns_expected_keys(sample_image):
          patch("src.agents.classification.SiglipForImageClassification.from_pretrained") as m, \
          patch("src.agents.morphology.ChatGoogleGenerativeAI") as mock_morph_llm, \
          patch("src.agents.retrieval.os.path.exists", return_value=False), \
-         patch("src.agents.retrieval.GoogleGenerativeAIEmbeddings"), \
          patch("src.agents.coordinator.ChatGoogleGenerativeAI") as mock_coord_llm:
         
         import torch

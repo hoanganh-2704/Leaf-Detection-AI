@@ -1,7 +1,7 @@
 #!/bin/bash
 # docker-entrypoint.sh
 # Runs once when the container starts.
-# Initialises the ChromaDB knowledge base (needs GEMINI_API_KEY at runtime),
+# Initialises the local ChromaDB knowledge base,
 # then hands off to whatever CMD was passed (backend or frontend).
 
 set -e

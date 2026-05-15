@@ -47,7 +47,7 @@ if !ERRORLEVEL! NEQ 0 (
 echo [INFO] Initialising Knowledge Base (ChromaDB)...
 python -m src.core.knowledge_setup
 if !ERRORLEVEL! NEQ 0 (
-    echo [ERROR] Knowledge base setup failed. Check your GEMINI_API_KEY in .env.
+    echo [ERROR] Knowledge base setup failed. Try deleting data\processed\chroma_db and rerun.
     pause
     exit /b 1
 )

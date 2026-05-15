@@ -1,7 +1,7 @@
 import os
 from langchain_community.vectorstores import Chroma
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from src.core.config import settings
+from src.core.local_embeddings import LocalHashEmbeddings
 
 
 HEALTHY_MESSAGE = """Không phát hiện bệnh trên lá lúa trong kết quả phân loại.
@@ -28,10 +28,7 @@ class RetrievalAgent:
 
     def _get_embeddings(self):
         if self.embeddings is None:
-            self.embeddings = GoogleGenerativeAIEmbeddings(
-                model="models/gemini-embedding-2",
-                google_api_key=settings.GEMINI_API_KEY,
-            )
+            self.embeddings = LocalHashEmbeddings()
         return self.embeddings
             
     def retrieve_info(self, disease_query: str) -> str:

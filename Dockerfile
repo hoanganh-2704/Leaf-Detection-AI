@@ -23,8 +23,7 @@ RUN chmod +x /app/docker-entrypoint.sh
 # Ensure Python can find the project root
 ENV PYTHONPATH="/app"
 
-# NOTE: ChromaDB initialisation is done at container START (in entrypoint)
-# because GEMINI_API_KEY is only available at runtime, not during build.
+# NOTE: ChromaDB initialisation is done at container START (in entrypoint).
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 
 # Default: run the Streamlit frontend (overridden by docker-compose for backend)

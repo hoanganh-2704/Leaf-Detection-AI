@@ -80,7 +80,7 @@ start.bat
 The script automatically:
 - Creates a Python virtual environment
 - Installs all dependencies from `requirements.txt`
-- Initialises the ChromaDB vector knowledge base (~20 s, needs internet + API key)
+- Initialises the local ChromaDB knowledge base
 - Starts **FastAPI backend** on port **8000**
 - Starts **Streamlit frontend** on port **8506**
 
@@ -149,7 +149,7 @@ docker compose logs -f backend
 docker compose logs -f frontend
 ```
 
-> **First-run note:** On the very first `docker compose up`, the backend runs `knowledge_setup.py` which calls the Gemini API to build the ChromaDB index. This takes ~30–60 s. The `./data/processed/chroma_db/` directory is persisted as a bind-mount volume so subsequent restarts skip this step and start in seconds.
+> **First-run note:** On the very first `docker compose up`, the backend runs `knowledge_setup.py` to build the local ChromaDB index. The `./data/processed/chroma_db/` directory is persisted as a bind-mount volume so subsequent restarts skip this step and start in seconds.
 
 > **Windows note:** Run all `docker compose` commands in **PowerShell** or **Command Prompt**. Docker Desktop must be running. If you see a `WSL 2` error, enable it in Docker Desktop settings.
 
@@ -208,7 +208,7 @@ Open `.env` and add your `GEMINI_API_KEY`.
 python -m src.core.knowledge_setup
 ```
 
-> Requires `GEMINI_API_KEY` in `.env`. Takes ~20 seconds on first run.
+> This step is local and does not require `GEMINI_API_KEY`.
 
 ### 5. Start the FastAPI backend
 

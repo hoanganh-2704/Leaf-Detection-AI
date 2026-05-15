@@ -1,8 +1,10 @@
 import os
+import shutil
+import sys
 from langchain_community.vectorstores import Chroma
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_core.documents import Document
 from src.core.config import settings
+from src.core.local_embeddings import LocalHashEmbeddings
 
 def setup_knowledge_base():
     """
@@ -19,16 +21,11 @@ def setup_knowledge_base():
     - Gnanamanickam, S.S. (2009). Biological Control of Rice Diseases. Springer.
     """
 
-    # 1. Khởi tạo Embeddings
-    print("Initializing Google Generative AI Embeddings (gemini-embedding-2)...")
-    try:
-        embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/gemini-embedding-2",
-            google_api_key=settings.GEMINI_API_KEY
-        )
-    except Exception as e:
-        print(f"[ERROR] Failed to initialize embeddings: {e}")
-        return
+    # 1. Use a local deterministic embedding function. The app mainly uses
+    # exact metadata lookup for these four disease documents, so setup should
+    # not depend on a remote embedding API.
+    print("Initializing local knowledge-base embeddings...")
+    embeddings = LocalHashEmbeddings()
 
     # 2. Cơ sở tri thức bệnh học — trích xuất từ tài liệu khoa học công bố
     documents = [
@@ -174,6 +171,12 @@ Biện pháp phòng trị (theo khuyến cáo của IRRI và Azzam & Chancellor,
     # 3. Tạo ChromaDB
     print(f"Creating ChromaDB at: {settings.VECTOR_DB_PATH}")
     try:
+        if os.path.exists(settings.VECTOR_DB_PATH):
+            print("Existing ChromaDB found. Rebuilding it to avoid stale or partial indexes...")
+            shutil.rmtree(settings.VECTOR_DB_PATH)
+
+        os.makedirs(os.path.dirname(settings.VECTOR_DB_PATH), exist_ok=True)
+
         vectorstore = Chroma.from_documents(
             documents=documents,
             embedding=embeddings,
@@ -181,12 +184,11 @@ Biện pháp phòng trị (theo khuyến cáo của IRRI và Azzam & Chancellor,
         )
         print("Vector database created and persisted successfully!")
         print(f"Total documents indexed: {len(documents)}")
+        return True
     except Exception as e:
         print(f"\n[CRITICAL ERROR] Could not create Vector DB: {e}")
-        if "403" in str(e):
-            print("\n!!! PHÁT HIỆN LỖI PHÂN QUYỀN (403 PERMISSION DENIED) !!!")
-            print("Vui lòng kiểm tra API Key tại: https://aistudio.google.com/app/apikey")
-            print("Chạy script chẩn đoán: `python src/core/diagnose_api.py`")
+        print("Please delete data/processed/chroma_db and run this setup again.")
+        return False
 
 if __name__ == "__main__":
-    setup_knowledge_base()
+    sys.exit(0 if setup_knowledge_base() else 1)
