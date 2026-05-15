@@ -7,6 +7,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 import streamlit as st
 from PIL import Image
+from src.core.report_format import strip_report_header
 
 # ── Cấu hình trang ────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -122,7 +123,8 @@ st.divider()
 
 # Báo cáo chẩn đoán
 st.subheader("📄 Báo cáo chẩn đoán")
-st.markdown(results["final_report"])
+display_report = strip_report_header(results["final_report"])
+st.markdown(display_report)
 
 # Tri thức bệnh học RAG (thu gọn mặc định)
 with st.expander("📚 Tri thức bệnh học (ChromaDB RAG)"):
@@ -131,7 +133,7 @@ with st.expander("📚 Tri thức bệnh học (ChromaDB RAG)"):
 # Nút tải xuống
 st.download_button(
     "⬇️ Tải báo cáo (.txt)",
-    data=results["final_report"],
+    data=display_report,
     file_name=f"BaoCao_{label_en.replace(' ', '_')}.txt",
     mime="text/plain",
     use_container_width=True,

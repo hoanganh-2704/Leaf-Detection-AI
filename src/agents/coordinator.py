@@ -140,6 +140,7 @@ hãy tổng hợp một BÁO CÁO CHẨN ĐOÁN BỆNH LÚA hoàn chỉnh, rõ r
 
 **YÊU CẦU BÁO CÁO:**
 {diagnosis_instruction}
+Không thêm tiêu đề tổng như "BÁO CÁO CHẨN ĐOÁN BỆNH LÚA" và không thêm dòng ngày báo cáo.
 
 Hãy viết báo cáo theo cấu trúc sau:
 ## KẾT LUẬN CHẨN ĐOÁN
